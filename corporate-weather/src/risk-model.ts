@@ -1,7 +1,5 @@
 import { z } from "zod";
 
-export const countrySchema = z.enum(["DACH", "DE", "AT", "CH"]);
-
 const scaleSchema = z.union([
   z.literal(1),
   z.literal(2),
@@ -18,7 +16,6 @@ const riskCategorySchema = z.enum([
   "Careers",
   "Company-Owned",
   "DACH Press",
-  "DACH Legal / Workplace",
 ]);
 
 const signalSchema = z.object({
@@ -85,14 +82,12 @@ export const riskOutputSchema = {
   signals: z.array(signalSchema),
   calmSignals: z.array(calmSignalSchema),
   employeeLayoffClusters: z.array(employeeLayoffClusterSchema),
-  dachLegalTermsDetected: z.array(z.string()),
   sourceChecks: z.array(sourceCheckSchema),
   missingEvidence: z.array(z.string()),
   watchNext: z.array(z.string()),
   scoreDetails: scoreDetailsSchema,
 };
 
-type Country = z.infer<typeof countrySchema>;
 type Signal = z.infer<typeof signalSchema>;
 type CalmSignal = z.infer<typeof calmSignalSchema>;
 type EmployeeLayoffCluster = z.infer<typeof employeeLayoffClusterSchema>;
@@ -112,7 +107,6 @@ export type RiskOutput = {
   signals: Signal[];
   calmSignals: CalmSignal[];
   employeeLayoffClusters: EmployeeLayoffCluster[];
-  dachLegalTermsDetected: string[];
   sourceChecks: SourceCheck[];
   missingEvidence: string[];
   watchNext: string[];
@@ -145,25 +139,6 @@ const dachPressSources = [
   "FAZ",
   "Süddeutsche Zeitung",
   "Tagesspiegel",
-];
-
-const dachLegalTerms = [
-  "Stellenabbau",
-  "Entlassungen",
-  "Kündigungen",
-  "betriebsbedingte Kündigungen",
-  "Sozialplan",
-  "Interessenausgleich",
-  "Betriebsrat",
-  "Massenentlassung",
-  "Massenentlassungsanzeige",
-  "Restrukturierung",
-  "Umstrukturierung",
-  "Standortschließung",
-  "Einstellungsstopp",
-  "Kurzarbeit",
-  "Sparprogramm",
-  "Effizienzprogramm",
 ];
 
 const linkedInLayoffPatterns = [
@@ -212,7 +187,6 @@ const categoryCaps: Record<RiskCategory, number> = {
   Careers: 20,
   "Company-Owned": 35,
   "DACH Press": 35,
-  "DACH Legal / Workplace": 45,
 };
 
 function hashCompany(companyName: string) {
@@ -596,24 +570,12 @@ function hasStrongEmployeeCluster(clusters: EmployeeLayoffCluster[]) {
   return clusters.some((cluster) => cluster.postCount >= 6 && cluster.confidence >= 4);
 }
 
-function hasConfirmedFormalSignal(signals: Signal[]) {
-  return signals.some(
-    (item) =>
-      item.category === "DACH Legal / Workplace" &&
-      item.severity >= 4 &&
-      item.confidence >= 4 &&
-      /sozialplan|interessenausgleich|massenentlassung|standortschließung|stellenabbau|betriebsrat/i.test(
-        item.title,
-      ),
-  );
-}
-
 function confidenceFor(
   signals: Signal[],
   missingEvidence: string[],
   clusters: EmployeeLayoffCluster[],
 ): Confidence {
-  if (hasConfirmedFormalSignal(signals) && missingEvidence.length <= 2) return "High";
+  if (hasReputablePressConfirmation(signals) && missingEvidence.length <= 2) return "High";
   if (hasStrongEmployeeCluster(clusters) && missingEvidence.length <= 3) return "Medium";
 
   const companySignals = signals.filter((item) => item.companySpecific);
@@ -688,10 +650,10 @@ function calculateScore(
     ),
   );
 
-  const confirmedFormal = hasConfirmedFormalSignal(signals);
+  const confirmedPublicLayoff = hasReputablePressConfirmation(signals);
   const strongEmployeeCluster = hasStrongEmployeeCluster(clusters);
   const requestedCalmModifierTotal = calmSignals.reduce((total, item) => total + item.impact, 0);
-  const maxCalmReduction = Math.round(rawRiskScore * (confirmedFormal || strongEmployeeCluster ? 0.1 : 0.33));
+  const maxCalmReduction = Math.round(rawRiskScore * (confirmedPublicLayoff || strongEmployeeCluster ? 0.1 : 0.33));
   const calmModifierTotal = -Math.min(Math.abs(requestedCalmModifierTotal), maxCalmReduction);
   let guardedScore = Math.max(0, Math.min(100, rawRiskScore + calmModifierTotal));
 
@@ -724,10 +686,10 @@ function calculateScore(
     whyNotHigher.push("Score cannot exceed 65 without recent company-specific evidence.");
   }
 
-  if (!confirmedFormal && !strongEmployeeCluster && !reputablePress && guardedScore > 75) {
+  if (!strongEmployeeCluster && !reputablePress && guardedScore > 75) {
     guardedScore = 75;
     whyNotHigher.push(
-      "Score cannot exceed 75 without confirmed layoffs, a strong employee signal cluster, Sozialplan, Betriebsrat involvement, or reputable DACH press confirmation.",
+      "Score cannot exceed 75 without reputable public confirmation of layoffs or a strong employee signal cluster.",
     );
   }
 
@@ -736,19 +698,13 @@ function calculateScore(
     whyNotLower.push("Recent company-specific layoff evidence prevents the score from dropping below Cloudy.");
   }
 
-  if (confirmedFormal && guardedScore < 76) {
+  if (confirmedPublicLayoff && guardedScore < 76) {
     guardedScore = 76;
-    whyNotLower.push("Formal DACH legal or workplace evidence keeps the score in Storm Warning.");
+    whyNotLower.push("Reputable public layoff evidence keeps the score in Storm Warning.");
   }
 
-  if (confirmedFormal && guardedScore > 94) {
+  if (confirmedPublicLayoff && guardedScore > 94) {
     guardedScore = 94;
-  }
-
-  if (!confirmedFormal) {
-    whyNotHigher.push(
-      "No confirmed Sozialplan, Interessenausgleich, Massenentlassung, Standortschließung, or formal Stellenabbau was found.",
-    );
   }
 
   if (strongEmployeeCluster) {
@@ -784,14 +740,14 @@ function buildSummary(companyName: string, riskLevel: RiskLevel, confidence: Con
   }
 
   if (riskLevel === "Watchlist") {
-    return `${companyName} is Watchlist: visible risk signals exist, but no high-confidence DACH layoff, Sozialplan, Standortschließung, or strong employee cluster was found.`;
+    return `${companyName} is Watchlist: visible risk signals exist, but public evidence remains limited and no strong employee cluster was verified.`;
   }
 
   if (riskLevel === "Cloudy") {
-    return `${companyName} is Cloudy based on recent company-specific visible risk signals. It is not Storm Warning because formal DACH legal-process evidence remains missing. Confidence is ${confidence.toLowerCase()}.`;
+    return `${companyName} is Cloudy based on recent company-specific visible risk signals. It is not Storm Warning because stronger public confirmation is still missing. Confidence is ${confidence.toLowerCase()}.`;
   }
 
-  return `${companyName} is Storm Warning because high-confidence DACH workplace or legal-process signals are visible. This is signal analysis only, not a prediction.`;
+  return `${companyName} is Storm Warning because high-confidence public layoff or restructuring signals are visible. This is signal analysis only, not a prediction.`;
 }
 
 function buildRiskOutput(
@@ -799,7 +755,6 @@ function buildRiskOutput(
   signals: Signal[],
   calmSignals: CalmSignal[],
   employeeLayoffClusters: EmployeeLayoffCluster[],
-  dachLegalTermsDetected: string[],
   sourceChecks: SourceCheck[],
   missingEvidence: string[],
   watchNext: string[],
@@ -819,7 +774,6 @@ function buildRiskOutput(
     signals,
     calmSignals,
     employeeLayoffClusters,
-    dachLegalTermsDetected,
     sourceChecks,
     missingEvidence,
     watchNext,
@@ -868,13 +822,12 @@ const healthyDemoData = buildRiskOutput(
       "This is a demo counter-signal, not a claim about live LinkedIn coverage.",
     ),
     calmSignal(
-      "No DACH legal layoff terms found",
-      -10,
-      "No Sozialplan, Interessenausgleich, Betriebsrat negotiation, Massenentlassung, or Standortschließung terms were found.",
-      "Missing formal DACH legal terms strongly limits the score.",
+      "No public layoff report in demo evidence",
+      -8,
+      "The healthy demo scenario does not include public layoff, restructuring, or site-closure reporting.",
+      "Missing public layoff reporting keeps this demo scenario low.",
     ),
   ],
-  [],
   [],
   [
     sourceCheck(
@@ -887,12 +840,12 @@ const healthyDemoData = buildRiskOutput(
     ),
   ],
   [
-    "No confirmed DACH legal or workplace layoff terms were found in the demo evidence.",
+    "No public layoff report is included in the healthy demo evidence.",
     "No employee layoff cluster is included in the healthy demo evidence.",
   ],
   [
     "Watch whether hiring remains active across several functions.",
-    "Monitor for formal DACH workplace terms if restructuring news appears.",
+    "Monitor for public layoff, restructuring, or site-closure reporting.",
   ],
 );
 
@@ -930,13 +883,12 @@ const normalSaasDemoData = buildRiskOutput(
       "This keeps the demo cautious without implying live LinkedIn was fully checked.",
     ),
     calmSignal(
-      "No DACH legal layoff terms found",
+      "No public layoff report in demo evidence",
       -4,
-      "No Sozialplan, Interessenausgleich, Massenentlassung, or Standortschließung was found.",
-      "Missing formal evidence prevents escalation.",
+      "The NormalSaaS demo scenario does not include public layoff or site-closure reporting.",
+      "Missing public confirmation prevents escalation.",
     ),
   ],
-  [],
   [],
   [
     sourceCheck(
@@ -991,7 +943,7 @@ const watchlistTechDemoData = buildRiskOutput(
       4,
       3,
       true,
-      "Leadership language mentions focus and efficiency without layoffs or legal-process terms.",
+      "Leadership language mentions focus and efficiency without layoffs or headcount language.",
       "Vague efficiency language adds context only.",
     ),
   ],
@@ -1002,14 +954,7 @@ const watchlistTechDemoData = buildRiskOutput(
       "No reputable DACH press or official source confirms layoffs.",
       "Missing confirmation keeps the score below elevated risk.",
     ),
-    calmSignal(
-      "No Sozialplan found",
-      -4,
-      "No Sozialplan, Interessenausgleich, or Standortschließung was detected.",
-      "Missing legal-process terms prevents Storm Warning.",
-    ),
   ],
-  [],
   [],
   [
     sourceCheck(
@@ -1024,7 +969,7 @@ const watchlistTechDemoData = buildRiskOutput(
   [
     "No confirmed layoffs were found.",
     "No employee layoff cluster is included in this Watchlist demo evidence.",
-    "No Sozialplan, Interessenausgleich, or Standortschließung was found.",
+    "No reputable public layoff or site-closure report is included in this demo evidence.",
   ],
   [
     "Watch whether Kununu uncertainty aligns with LinkedIn employee posts.",
@@ -1071,10 +1016,10 @@ const recentLayoffDemoData = buildRiskOutput(
   ],
   [
     calmSignal(
-      "No formal DACH legal process found",
-      -10,
-      "No Sozialplan, Interessenausgleich, Massenentlassung, or Standortschließung was detected.",
-      "Missing formal legal evidence prevents Storm Warning.",
+      "No reputable press confirmation in demo evidence",
+      -6,
+      "This demo scenario is based on employee snippets and hiring visibility, not reputable press confirmation.",
+      "Missing public press confirmation prevents Storm Warning.",
     ),
   ],
   [
@@ -1085,10 +1030,9 @@ const recentLayoffDemoData = buildRiskOutput(
       4,
       4,
       "Several recent public employee snippets connect open-to-work or role-eliminated language to the company.",
-      "A 6+ post cluster is treated as high-confidence employee evidence, but not as formal legal proof.",
+      "A 6+ post cluster is treated as high-confidence employee evidence, but not as public press confirmation.",
     ),
   ],
-  [],
   [
     sourceCheck(
       "LinkedIn public snippets",
@@ -1099,11 +1043,11 @@ const recentLayoffDemoData = buildRiskOutput(
       "Demo scenario: repeated LinkedIn employee snippets are included as an employeeLayoffCluster.",
     ),
   ],
-  ["No Sozialplan or Interessenausgleich was found.", "No reputable DACH press confirmation was found."],
+  ["No reputable DACH press confirmation is included in this demo evidence."],
   [
     "Watch for reputable DACH press confirmation.",
     "Monitor whether employee posts continue clustering over the next 30 days.",
-    "Check for Sozialplan, Betriebsrat, or Massenentlassung language.",
+    "Check for public company updates or reputable business press coverage.",
   ],
 );
 
@@ -1122,26 +1066,26 @@ const stormDemoData = buildRiskOutput(
       "Confirmed workforce reduction is a high-severity visible risk signal.",
     ),
     signal(
-      "Sozialplan and Betriebsrat negotiations",
-      "DACH Legal / Workplace",
+      "Public site-closure reporting",
+      "DACH Press",
       5,
       5,
       5,
       5,
       true,
-      "Demo evidence contains Sozialplan, Betriebsrat negotiations, and Interessenausgleich language.",
-      "Formal DACH labor-process terms are critical because they indicate concrete workforce-reduction negotiations.",
+      "Demo evidence includes reputable public reporting of a site closure tied to restructuring.",
+      "Public site-closure reporting is a critical visible risk signal.",
     ),
     signal(
-      "Standortschließung tied to restructuring",
+      "Official restructuring update",
       "Company-Owned",
       5,
       4,
       4,
       5,
       true,
-      "Company-owned demo source references Standortschließung and a restructuring program.",
-      "Site-closure language tied to restructuring is a critical signal.",
+      "Company-owned demo source references a restructuring program and affected locations.",
+      "Official company-owned restructuring language raises confidence when it aligns with public reporting.",
     ),
   ],
   [
@@ -1149,11 +1093,10 @@ const stormDemoData = buildRiskOutput(
       "Some active replacement roles remain",
       -4,
       "A few replacement or operational roles remain visible.",
-      "Limited hiring can reduce breadth, but it does not erase confirmed formal layoff evidence.",
+      "Limited hiring can reduce breadth, but it does not erase confirmed public layoff evidence.",
     ),
   ],
   [],
-  ["Stellenabbau", "Sozialplan", "Betriebsrat", "Interessenausgleich", "Standortschließung"],
   [
     sourceCheck(
       "LinkedIn public snippets",
@@ -1161,14 +1104,14 @@ const stormDemoData = buildRiskOutput(
       undefined,
       0,
       0,
-      "Demo scenario: StormAG is driven by formal DACH legal and press evidence, not LinkedIn snippets.",
+      "Demo scenario: StormAG is driven by public press and company-owned restructuring evidence, not LinkedIn snippets.",
     ),
   ],
   [],
   [
-    "Watch Sozialplan timeline, affected locations, and confirmed headcount scope.",
-    "Monitor Betriebsrat statements and official company updates.",
-    "Track whether Standortschließung scope changes.",
+    "Watch affected locations and confirmed headcount scope.",
+    "Monitor official company updates and reputable business press.",
+    "Track whether public restructuring scope changes.",
   ],
 );
 
@@ -1192,13 +1135,11 @@ function addSignal(signals: Signal[], item: Signal) {
   signals.push(item);
 }
 
-function collectSignals(companyName: string, country: Country | undefined) {
-  const normalizedCountry = country ?? "DACH";
-  const seed = hashCompany(`${companyName}:${normalizedCountry}`);
+function collectSignals(companyName: string) {
+  const seed = hashCompany(companyName);
   const signals: Signal[] = [];
   const calmSignals: CalmSignal[] = [];
   const clusters: EmployeeLayoffCluster[] = [];
-  const detectedTerms: string[] = [];
   const missingEvidence: string[] = [];
 
   addSignal(
@@ -1254,7 +1195,7 @@ function collectSignals(companyName: string, country: Country | undefined) {
         3,
         true,
         "Company-owned language mentions focus, efficiency, profitability, or sustainable growth.",
-        "This stays low severity unless tied to headcount, consolidation, or legal-process terms.",
+        "This stays low severity unless tied to headcount, consolidation, or public layoff reporting.",
       ),
     );
   }
@@ -1279,31 +1220,22 @@ function collectSignals(companyName: string, country: Country | undefined) {
   }
 
   if ((seed >> 8) % 14 === 13) {
-    detectedTerms.push("Sozialplan", "Betriebsrat", "Stellenabbau");
     addSignal(
       signals,
       signal(
-        "Formal DACH workplace process detected",
-        "DACH Legal / Workplace",
-        5,
-        5,
+        "Public workforce-reduction report",
+        "DACH Press",
+        4,
+        4,
         5,
         5,
         true,
-        `Simulated collector found ${detectedTerms.join(", ")} terms.`,
-        "Formal DACH workplace terms are critical high-confidence signals.",
+        "Simulated public-source collector found company-specific workforce-reduction reporting.",
+        "Reputable public reporting is treated as high-confidence visible evidence.",
       ),
     );
   } else {
-    calmSignals.push(
-      calmSignal(
-        "No DACH legal layoff terms found",
-        -10,
-        `No high-priority DACH terms were found: ${dachLegalTerms.slice(0, 8).join(", ")}.`,
-        "Missing legal/process evidence prevents alarmist scoring.",
-      ),
-    );
-    missingEvidence.push("No confirmed Sozialplan, Interessenausgleich, Massenentlassung, Betriebsrat involvement, or Standortschließung was found.");
+    missingEvidence.push("No reputable public workforce-reduction report was surfaced by the current scan.");
   }
 
   if (signals.every((item) => item.category === "Market Context")) {
@@ -1317,14 +1249,11 @@ function collectSignals(companyName: string, country: Country | undefined) {
     );
   }
 
-  return { signals, calmSignals, clusters, detectedTerms, missingEvidence };
+  return { signals, calmSignals, clusters, missingEvidence };
 }
 
-async function liveAnalysis(companyName: string, country?: Country) {
-  const { signals, calmSignals, clusters, detectedTerms, missingEvidence } = collectSignals(
-    companyName,
-    country,
-  );
+async function liveAnalysis(companyName: string) {
+  const { signals, calmSignals, clusters, missingEvidence } = collectSignals(companyName);
   const linkedInSignals = await collectLinkedInEmployeeSignals(companyName);
   signals.push(...linkedInSignals.signals);
   clusters.push(...linkedInSignals.clusters);
@@ -1337,14 +1266,13 @@ async function liveAnalysis(companyName: string, country?: Country) {
     signals,
     calmSignals,
     clusters,
-    detectedTerms,
     [linkedInSignals.sourceCheck],
     missingEvidence,
     [
       "Watch for reputable DACH press confirmation from sources such as Handelsblatt, WirtschaftsWoche, Manager Magazin, t3n, Heise, FAZ, or Süddeutsche.",
       "Monitor LinkedIn for repeated employee signal clusters, not isolated posts.",
       "Check Kununu for repeated patterns that align with news, hiring, or employee clusters.",
-      "Look for DACH legal terms: Sozialplan, Interessenausgleich, Massenentlassung, Betriebsrat, Standortschließung, or confirmed Stellenabbau.",
+      "Look for public company updates or reputable press reports that directly mention headcount, layoffs, or site closures.",
     ],
   );
 }
@@ -1378,13 +1306,12 @@ function genericCloudyDemoData(companyName: string): RiskOutput {
     ],
     [
       calmSignal(
-        "No formal DACH legal signal found",
-        -10,
-        "Fallback data has no Sozialplan, Interessenausgleich, Massenentlassung, or Standortschließung.",
-        "Missing formal evidence keeps the fallback cautious.",
+        "No public layoff report verified",
+        -6,
+        "Fallback data has no reputable public layoff or site-closure confirmation.",
+        "Missing public confirmation keeps the fallback cautious.",
       ),
     ],
-    [],
     [],
     [
       sourceCheck(
@@ -1398,11 +1325,11 @@ function genericCloudyDemoData(companyName: string): RiskOutput {
     ],
     [
       "Live analysis failed, so this result uses cautious fallback data.",
-      "No verified DACH legal/process terms were available in the fallback path.",
+      "No verified public layoff report was available in the fallback path.",
     ],
     [
       "Re-run analysis when live sources are available.",
-      "Watch for LinkedIn employee clusters, Kununu corroboration, and formal DACH legal terms.",
+      "Watch for LinkedIn employee clusters, Kununu corroboration, and reputable public reporting.",
     ],
     `${companyName} is shown with cautious fallback data; risk remains limited by missing high-confidence DACH signals.`,
   );
@@ -1412,14 +1339,14 @@ function normalizeDemoKey(companyName: string) {
   return companyName.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
-export async function analyzeCompany(companyName: string, country?: Country): Promise<RiskOutput> {
+export async function analyzeCompany(companyName: string): Promise<RiskOutput> {
   const demoData = demoCompanies[normalizeDemoKey(companyName)];
   if (demoData) {
     return demoData;
   }
 
   try {
-    return await liveAnalysis(companyName, country);
+    return await liveAnalysis(companyName);
   } catch {
     return genericCloudyDemoData(companyName);
   }

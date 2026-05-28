@@ -12,7 +12,7 @@ const failures = [];
 const results = [];
 
 for (const [companyName, min, max] of expectedRanges) {
-  const report = await analyzeCompany(companyName, "DACH");
+  const report = await analyzeCompany(companyName);
   if (report.riskScore < min || report.riskScore > max) {
     failures.push(`${companyName} scored ${report.riskScore}; expected ${min}-${max}.`);
   }
@@ -24,22 +24,22 @@ for (const [companyName, min, max] of expectedRanges) {
   });
 }
 
-const generic = await analyzeCompany("GenericMarket GmbH", "DACH");
+const generic = await analyzeCompany("GenericMarket GmbH");
 if (generic.riskScore > 50) {
   failures.push(`Generic market scan scored ${generic.riskScore}; expected <= 50.`);
 }
 
-const recentLayoff = await analyzeCompany("RecentLayoff GmbH", "DE");
+const recentLayoff = await analyzeCompany("RecentLayoff GmbH");
 if (recentLayoff.riskScore < 55) {
   failures.push(`Recent layoff cluster scored ${recentLayoff.riskScore}; expected >= 55.`);
 }
 
-const storm = await analyzeCompany("StormAG", "DE");
+const storm = await analyzeCompany("StormAG");
 if (storm.riskScore < 75) {
-  failures.push(`Confirmed Sozialplan scenario scored ${storm.riskScore}; expected >= 75.`);
+  failures.push(`Confirmed public layoff scenario scored ${storm.riskScore}; expected >= 75.`);
 }
 
-const healthy = await analyzeCompany("HealthyCo GmbH", "DE");
+const healthy = await analyzeCompany("HealthyCo GmbH");
 if (healthy.riskScore > 35) {
   failures.push(`Healthy company scored ${healthy.riskScore}; expected <= 35.`);
 }

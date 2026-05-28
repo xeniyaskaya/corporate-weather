@@ -1,7 +1,7 @@
 import { McpServer } from "skybridge/server";
 import { z } from "zod";
 
-import { analyzeCompany, countrySchema, riskOutputSchema } from "./risk-model.js";
+import { analyzeCompany, riskOutputSchema } from "./risk-model.js";
 
 const server = new McpServer(
   {
@@ -17,7 +17,6 @@ const server = new McpServer(
       "Analyze visible public DACH layoff-risk signals and produce a cautious workplace weather report. This does not predict layoffs or provide legal advice.",
     inputSchema: {
       companyName: z.string().min(1).describe("Company name to analyze"),
-      country: countrySchema.optional().describe("Optional DACH country or region context"),
     },
     outputSchema: riskOutputSchema,
     annotations: {
@@ -36,8 +35,8 @@ const server = new McpServer(
       "openai/toolInvocation/invoked": "DACH workplace weather analyzed",
     },
   },
-  async ({ companyName, country }) => {
-    const structuredContent = await analyzeCompany(companyName.trim(), country);
+  async ({ companyName }) => {
+    const structuredContent = await analyzeCompany(companyName.trim());
 
     return {
       structuredContent,

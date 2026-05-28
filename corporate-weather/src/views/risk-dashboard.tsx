@@ -49,7 +49,6 @@ type RiskOutput = {
     evidence: string;
     explanation: string;
   }>;
-  dachLegalTermsDetected: string[];
   sourceChecks: Array<{
     source: string;
     status: "checked" | "not_configured" | "error" | "demo";
@@ -80,9 +79,6 @@ export default function RiskDashboard() {
   const toolInfo = useToolInfo<"analyzeCompanyLayoffRisk">();
   const { callTool, data, isPending: isSearching } = useCallTool("analyzeCompanyLayoffRisk");
   const [companyName, setCompanyName] = useState(toolInfo.input?.companyName ?? "");
-  const [country, setCountry] = useState<"DACH" | "DE" | "AT" | "CH">(
-    (toolInfo.input?.country as "DACH" | "DE" | "AT" | "CH" | undefined) ?? "DACH",
-  );
 
   const metadataResult =
     toolInfo.isSuccess && "result" in toolInfo.responseMetadata
@@ -98,7 +94,6 @@ export default function RiskDashboard() {
     if (!trimmedName) return;
     callTool({
       companyName: trimmedName,
-      country,
     });
   }
 
@@ -111,18 +106,6 @@ export default function RiskDashboard() {
           onChange={(event) => setCompanyName(event.target.value)}
           placeholder="Try HealthyCo GmbH, NormalSaaS GmbH, RecentLayoff GmbH"
         />
-      </label>
-      <label>
-        <span>Region</span>
-        <select
-          value={country}
-          onChange={(event) => setCountry(event.target.value as "DACH" | "DE" | "AT" | "CH")}
-        >
-          <option value="DACH">DACH</option>
-          <option value="DE">DE</option>
-          <option value="AT">AT</option>
-          <option value="CH">CH</option>
-        </select>
       </label>
       <button type="submit" disabled={isSearching || !companyName.trim()}>
         {isSearching ? "Analyzing" : "Analyze"}
@@ -310,22 +293,6 @@ export default function RiskDashboard() {
               </p>
             </div>
           ) : null}
-        </div>
-
-        <div className="section-block compact">
-          <div className="section-heading">
-            <p className="eyebrow">DACH</p>
-            <h2>Legal / Workplace Terms</h2>
-          </div>
-          {output.dachLegalTermsDetected.length === 0 ? (
-            <p>No formal DACH layoff terms detected.</p>
-          ) : (
-            <div className="term-list">
-              {output.dachLegalTermsDetected.map((term) => (
-                <span key={term}>{term}</span>
-              ))}
-            </div>
-          )}
         </div>
       </section>
 

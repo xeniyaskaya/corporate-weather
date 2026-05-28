@@ -44,7 +44,7 @@ select {
 
 .search-bar {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 116px 116px;
+  grid-template-columns: minmax(0, 1fr) 116px;
   gap: 10px;
   align-items: end;
   margin-bottom: 12px;
