@@ -40,14 +40,16 @@ Analyze company layoff risk:
 ## Tools and Views
 **Tool: analyzeCompanyLayoffRisk**
 - **Input**: `{ companyName: string; country?: "DE" | "US" | "EU" }`
-- **Output**: `{ companyName, riskScore, riskLevel, confidence, summary, signals, missingEvidence, watchNext }`
+- **Output**: `{ companyName, riskScore, riskLevel, confidence, summary, signals, calmSignals, missingEvidence, watchNext, scoreDetails }`
 - **Signal shape**: `{ title, category, severity, confidence, recency, evidence, explanation }`
 - **Signal score**: `severity * confidence * recency`
-- **Total score**: Normalize each signal score to `0-100`, then combine signals with a non-diluting cumulative model so one decisive signal, such as `Sozialplan negotiations found` at `5 * 5 * 5`, can drive a Storm Warning.
+- **Total score**: Uses an uncertainty baseline plus category-capped contributions, then applies capped calm modifiers and guardrails. Generic weak signals cannot push a company above high-risk levels.
+- **Category caps**: `Market-Wide 8`, `Leadership Language 12`, `Employee Sentiment 15`, `Hiring 20`, `Official Layoff / Legal and German Legal Signal 45`.
 - **Risk levels**: `0-25 Clear`, `26-50 Watchlist`, `51-75 Cloudy`, `76-100 Storm Warning`
-- **Behavior**: Simulates source collection across news, hiring, employee sentiment, leadership language, and German legal/process indicators. Produces deterministic scoring and confidence.
+- **Guardrails**: Scores are capped unless there are company-specific, high-confidence, high/critical, or confirmed formal layoff/legal signals.
+- **Behavior**: Simulates visible public signal analysis across market context, news, hiring, employee sentiment, leadership language, and German legal/process indicators. It does not predict layoffs or provide legal advice.
 
 **View: RiskDashboard**
 - **Input**: Same as `analyzeCompanyLayoffRisk`
 - **Output**: Same as `analyzeCompanyLayoffRisk`
-- **Behavior**: Presents score, risk level, confidence, signals grouped by source, missing evidence, and watch-next items.
+- **Behavior**: Presents score, weather label, confidence, risk signals, positive/calm signals, missing evidence, why-not-higher guardrails, category contributions, and watch-next items.

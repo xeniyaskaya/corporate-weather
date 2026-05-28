@@ -32,8 +32,27 @@ type RiskOutput = {
     evidence: string;
     explanation: string;
   }>;
+  calmSignals: Array<{
+    title: string;
+    impact: number;
+    evidence: string;
+    explanation: string;
+  }>;
   missingEvidence: string[];
   watchNext: string[];
+  scoreDetails: {
+    rawRiskScore: number;
+    calmModifierTotal: number;
+    guardrailAdjustedScore: number;
+    increasedBy: string[];
+    reducedBy: string[];
+    whyNotHigher: string[];
+    categoryContributions: Array<{
+      category: string;
+      contribution: number;
+      cap: number;
+    }>;
+  };
 };
 
 export default function RiskDashboard() {
@@ -69,7 +88,7 @@ export default function RiskDashboard() {
         <input
           value={companyName}
           onChange={(event) => setCompanyName(event.target.value)}
-          placeholder="Try futuremobility, scalenow, or demosoft"
+          placeholder="Try demosoft, scalenow, budgetcloud, or futuremobility"
         />
       </label>
       <label>
@@ -156,10 +175,32 @@ export default function RiskDashboard() {
         </div>
       </section>
 
+      <section className="section-block explanation-block">
+        <div className="section-heading">
+          <p className="eyebrow">Score</p>
+          <h2>Why This Score</h2>
+        </div>
+        <p>{output.summary}</p>
+        <div className="score-ledger">
+          <div>
+            <span>Risk signals before calm modifiers</span>
+            <strong>{output.scoreDetails.rawRiskScore}</strong>
+          </div>
+          <div>
+            <span>Calm modifiers</span>
+            <strong>{output.scoreDetails.calmModifierTotal}</strong>
+          </div>
+          <div>
+            <span>Final guarded score</span>
+            <strong>{output.scoreDetails.guardrailAdjustedScore}</strong>
+          </div>
+        </div>
+      </section>
+
       <section className="section-block">
         <div className="section-heading">
-          <p className="eyebrow">Evidence</p>
-          <h2>Signals</h2>
+          <p className="eyebrow">Risk</p>
+          <h2>Risk Signals</h2>
         </div>
         <div className="signal-list">
           {output.signals.map((signal, index) => (
@@ -195,6 +236,32 @@ export default function RiskDashboard() {
         </div>
       </section>
 
+      <section className="section-block">
+        <div className="section-heading">
+          <p className="eyebrow">Calm</p>
+          <h2>Positive / Calm Signals</h2>
+        </div>
+        <div className="calm-list">
+          {output.calmSignals.length === 0 ? (
+            <article className="calm-item">
+              <h3>No calm counter-signals found</h3>
+              <p>The score was not reduced by visible hiring, growth, or missing-evidence counter-signals.</p>
+            </article>
+          ) : (
+            output.calmSignals.map((signal, index) => (
+              <article className="calm-item" key={`${signal.title}-${index}`}>
+                <div className="calm-topline">
+                  <span>{signal.impact}</span>
+                  <strong>{signal.title}</strong>
+                </div>
+                <p>{signal.evidence}</p>
+                <p>{signal.explanation}</p>
+              </article>
+            ))
+          )}
+        </div>
+      </section>
+
       <section className="two-column">
         <div className="section-block compact">
           <div className="section-heading">
@@ -210,6 +277,20 @@ export default function RiskDashboard() {
 
         <div className="section-block compact">
           <div className="section-heading">
+            <p className="eyebrow">Guardrail</p>
+            <h2>Why Not Higher?</h2>
+          </div>
+          <ul>
+            {output.scoreDetails.whyNotHigher.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      <section className="two-column">
+        <div className="section-block compact">
+          <div className="section-heading">
             <p className="eyebrow">Next</p>
             <h2>Watch Next</h2>
           </div>
@@ -218,6 +299,23 @@ export default function RiskDashboard() {
               <li key={item}>{item}</li>
             ))}
           </ul>
+        </div>
+
+        <div className="section-block compact">
+          <div className="section-heading">
+            <p className="eyebrow">Caps</p>
+            <h2>Category Contributions</h2>
+          </div>
+          <div className="category-list">
+            {output.scoreDetails.categoryContributions.map((item) => (
+              <div key={item.category}>
+                <span>{item.category}</span>
+                <strong>
+                  {item.contribution}/{item.cap}
+                </strong>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
