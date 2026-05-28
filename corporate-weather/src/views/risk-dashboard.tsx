@@ -17,6 +17,25 @@ const scaleLabel = {
   5: "High",
 };
 
+type RiskOutput = {
+  companyName: string;
+  riskScore: number;
+  riskLevel: keyof typeof levelClass;
+  confidence: "Low" | "Medium" | "High";
+  summary: string;
+  signals: Array<{
+    title: string;
+    category: string;
+    severity: keyof typeof scaleLabel;
+    confidence: keyof typeof scaleLabel;
+    recency: keyof typeof scaleLabel;
+    evidence: string;
+    explanation: string;
+  }>;
+  missingEvidence: string[];
+  watchNext: string[];
+};
+
 export default function RiskDashboard() {
   const toolInfo = useToolInfo<"analyzeCompanyLayoffRisk">();
   const { callTool, data, isPending: isSearching } = useCallTool("analyzeCompanyLayoffRisk");
@@ -25,23 +44,13 @@ export default function RiskDashboard() {
     toolInfo.input?.country ?? "EU",
   );
 
-  if (!toolInfo.isSuccess) {
-    return (
-      <main className="risk-shell">
-        <section className="loading-panel">
-          <span className="loading-dot" />
-          <div>
-            <p className="eyebrow">Corporate Weather</p>
-            <h1>Analyzing {toolInfo.input?.companyName ?? "company"}...</h1>
-          </div>
-        </section>
-      </main>
-    );
-  }
-
-  const output = data?.structuredContent ?? toolInfo.output;
-  const circumference = 2 * Math.PI * 48;
-  const offset = circumference - (output.riskScore / 100) * circumference;
+  const metadataResult =
+    toolInfo.isSuccess && "result" in toolInfo.responseMetadata
+      ? (toolInfo.responseMetadata.result as RiskOutput)
+      : undefined;
+  const output = (data?.structuredContent ?? (toolInfo.isSuccess ? toolInfo.output : undefined) ?? metadataResult) as
+    | RiskOutput
+    | undefined;
 
   function submitSearch(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -53,32 +62,58 @@ export default function RiskDashboard() {
     });
   }
 
+  const searchBar = (
+    <form className="search-bar" onSubmit={submitSearch}>
+      <label>
+        <span>Company</span>
+        <input
+          value={companyName}
+          onChange={(event) => setCompanyName(event.target.value)}
+          placeholder="Try futuremobility, scalenow, or demosoft"
+        />
+      </label>
+      <label>
+        <span>Market</span>
+        <select
+          value={country}
+          onChange={(event) => setCountry(event.target.value as "DE" | "US" | "EU")}
+        >
+          <option value="EU">EU</option>
+          <option value="DE">DE</option>
+          <option value="US">US</option>
+        </select>
+      </label>
+      <button type="submit" disabled={isSearching || !companyName.trim()}>
+        {isSearching ? "Analyzing" : "Analyze"}
+      </button>
+    </form>
+  );
+
+  if (!output) {
+    return (
+      <main className="risk-shell">
+        {searchBar}
+        <section className="loading-panel">
+          <span className="loading-dot" />
+          <div>
+            <p className="eyebrow">Corporate Weather</p>
+            <h1>{isSearching ? "Analyzing company..." : "Search a company"}</h1>
+            <p className="summary">
+              If the host does not pass tool output into this view, use the search above to
+              load the dashboard directly.
+            </p>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
+  const circumference = 2 * Math.PI * 48;
+  const offset = circumference - (output.riskScore / 100) * circumference;
+
   return (
     <main className="risk-shell">
-      <form className="search-bar" onSubmit={submitSearch}>
-        <label>
-          <span>Company</span>
-          <input
-            value={companyName}
-            onChange={(event) => setCompanyName(event.target.value)}
-            placeholder="Search company"
-          />
-        </label>
-        <label>
-          <span>Market</span>
-          <select
-            value={country}
-            onChange={(event) => setCountry(event.target.value as "DE" | "US" | "EU")}
-          >
-            <option value="EU">EU</option>
-            <option value="DE">DE</option>
-            <option value="US">US</option>
-          </select>
-        </label>
-        <button type="submit" disabled={isSearching || !companyName.trim()}>
-          {isSearching ? "Analyzing" : "Analyze"}
-        </button>
-      </form>
+      {searchBar}
 
       <section className={`hero ${levelClass[output.riskLevel]}`}>
         <div className="hero-copy">

@@ -539,6 +539,7 @@ const server = new McpServer(
       prefersBorder: true,
     },
     _meta: {
+      "openai/widgetAccessible": true,
       "openai/toolInvocation/invoking": "Checking corporate weather",
       "openai/toolInvocation/invoked": "Corporate weather analyzed",
     },
@@ -548,6 +549,9 @@ const server = new McpServer(
 
     return {
       structuredContent,
+      _meta: {
+        result: structuredContent,
+      },
       content: [
         {
           type: "text",
