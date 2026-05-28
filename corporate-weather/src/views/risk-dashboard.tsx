@@ -29,6 +29,8 @@ type RiskOutput = {
     severity: keyof typeof scaleLabel;
     confidence: keyof typeof scaleLabel;
     recency: keyof typeof scaleLabel;
+    sourceReliability: keyof typeof scaleLabel;
+    companySpecific: boolean;
     evidence: string;
     explanation: string;
   }>;
@@ -38,6 +40,16 @@ type RiskOutput = {
     evidence: string;
     explanation: string;
   }>;
+  employeeLayoffClusters: Array<{
+    title: string;
+    postCount: number;
+    timeWindow: string;
+    severity: keyof typeof scaleLabel;
+    confidence: keyof typeof scaleLabel;
+    evidence: string;
+    explanation: string;
+  }>;
+  dachLegalTermsDetected: string[];
   missingEvidence: string[];
   watchNext: string[];
   scoreDetails: {
@@ -47,6 +59,7 @@ type RiskOutput = {
     increasedBy: string[];
     reducedBy: string[];
     whyNotHigher: string[];
+    whyNotLower: string[];
     categoryContributions: Array<{
       category: string;
       contribution: number;
@@ -59,8 +72,8 @@ export default function RiskDashboard() {
   const toolInfo = useToolInfo<"analyzeCompanyLayoffRisk">();
   const { callTool, data, isPending: isSearching } = useCallTool("analyzeCompanyLayoffRisk");
   const [companyName, setCompanyName] = useState(toolInfo.input?.companyName ?? "");
-  const [country, setCountry] = useState<"DE" | "US" | "EU">(
-    toolInfo.input?.country ?? "EU",
+  const [country, setCountry] = useState<"DACH" | "DE" | "AT" | "CH">(
+    (toolInfo.input?.country as "DACH" | "DE" | "AT" | "CH" | undefined) ?? "DACH",
   );
 
   const metadataResult =
@@ -77,7 +90,7 @@ export default function RiskDashboard() {
     if (!trimmedName) return;
     callTool({
       companyName: trimmedName,
-      country: country as "DE" | "US" | "EU",
+      country,
     });
   }
 
@@ -88,18 +101,19 @@ export default function RiskDashboard() {
         <input
           value={companyName}
           onChange={(event) => setCompanyName(event.target.value)}
-          placeholder="Try demosoft, scalenow, budgetcloud, or futuremobility"
+          placeholder="Try HealthyCo GmbH, NormalSaaS GmbH, RecentLayoff GmbH"
         />
       </label>
       <label>
-        <span>Market</span>
+        <span>Region</span>
         <select
           value={country}
-          onChange={(event) => setCountry(event.target.value as "DE" | "US" | "EU")}
+          onChange={(event) => setCountry(event.target.value as "DACH" | "DE" | "AT" | "CH")}
         >
-          <option value="EU">EU</option>
+          <option value="DACH">DACH</option>
           <option value="DE">DE</option>
-          <option value="US">US</option>
+          <option value="AT">AT</option>
+          <option value="CH">CH</option>
         </select>
       </label>
       <button type="submit" disabled={isSearching || !companyName.trim()}>
@@ -170,8 +184,8 @@ export default function RiskDashboard() {
           <strong>{output.confidence}</strong>
         </div>
         <div>
-          <span>Signals</span>
-          <strong>{output.signals.length}</strong>
+          <span>Employee Clusters</span>
+          <strong>{output.employeeLayoffClusters.length}</strong>
         </div>
       </section>
 
@@ -225,6 +239,10 @@ export default function RiskDashboard() {
                   <dt>Recency</dt>
                   <dd>{scaleLabel[signal.recency]}</dd>
                 </div>
+                <div>
+                  <dt>Reliability</dt>
+                  <dd>{scaleLabel[signal.sourceReliability]}</dd>
+                </div>
               </dl>
               <p className="evidence">{signal.evidence}</p>
               <div className="why-panel">
@@ -233,6 +251,58 @@ export default function RiskDashboard() {
               </div>
             </article>
           ))}
+        </div>
+      </section>
+
+      <section className="two-column">
+        <div className="section-block compact">
+          <div className="section-heading">
+            <p className="eyebrow">Employees</p>
+            <h2>Employee Signal Clusters</h2>
+          </div>
+          {output.employeeLayoffClusters.length === 0 ? (
+            <p>No recent LinkedIn employee layoff/open-to-work cluster was found.</p>
+          ) : (
+            <div className="cluster-list">
+              {output.employeeLayoffClusters.map((cluster, index) => (
+                <article className="cluster-item" key={`${cluster.title}-${index}`}>
+                  <div className="calm-topline">
+                    <span>{cluster.postCount} posts</span>
+                    <strong>{cluster.timeWindow}</strong>
+                  </div>
+                  <h3>{cluster.title}</h3>
+                  <dl className="signal-metrics">
+                    <div>
+                      <dt>Severity</dt>
+                      <dd>{scaleLabel[cluster.severity]}</dd>
+                    </div>
+                    <div>
+                      <dt>Confidence</dt>
+                      <dd>{scaleLabel[cluster.confidence]}</dd>
+                    </div>
+                  </dl>
+                  <p>{cluster.evidence}</p>
+                  <p>{cluster.explanation}</p>
+                </article>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="section-block compact">
+          <div className="section-heading">
+            <p className="eyebrow">DACH</p>
+            <h2>Legal / Workplace Terms</h2>
+          </div>
+          {output.dachLegalTermsDetected.length === 0 ? (
+            <p>No formal DACH layoff terms detected.</p>
+          ) : (
+            <div className="term-list">
+              {output.dachLegalTermsDetected.map((term) => (
+                <span key={term}>{term}</span>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
@@ -266,7 +336,7 @@ export default function RiskDashboard() {
         <div className="section-block compact">
           <div className="section-heading">
             <p className="eyebrow">Coverage</p>
-            <h2>Coverage Notes</h2>
+            <h2>Missing Evidence</h2>
           </div>
           <ul>
             {output.missingEvidence.map((item) => (
@@ -286,6 +356,18 @@ export default function RiskDashboard() {
             ))}
           </ul>
         </div>
+      </section>
+
+      <section className="section-block compact">
+        <div className="section-heading">
+          <p className="eyebrow">Balance</p>
+          <h2>Why Not Lower?</h2>
+        </div>
+        <ul>
+          {output.scoreDetails.whyNotLower.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
       </section>
 
       <section className="two-column">
