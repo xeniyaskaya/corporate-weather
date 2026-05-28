@@ -48,6 +48,7 @@ Analyze company layoff risk:
 - **Risk levels**: `0-25 Clear`, `26-50 Watchlist`, `51-75 Cloudy`, `76-100 Storm Warning`
 - **Guardrails**: Generic market pressure alone cannot exceed 40, vague efficiency language alone cannot exceed 45, scores cannot exceed 55 without company-specific evidence, 65 without recent company-specific evidence, or 75 without confirmed layoffs, a strong employee cluster, Sozialplan, Betriebsrat involvement, or reputable DACH press confirmation.
 - **Behavior**: Simulates visible public DACH signal analysis across market context, DACH press, hiring, Kununu, LinkedIn employee clusters, company-owned sources, and DACH legal/process indicators. It does not predict layoffs or provide legal advice.
+- **Optional live search**: If `SEARCH_API_PROVIDER` plus a provider key is configured, the model checks public LinkedIn snippets through Brave Search API, SerpApi, or Tavily. Without a key, LinkedIn is marked `not_configured` and treated as missing evidence.
 
 **View: RiskDashboard**
 - **Input**: Same as `analyzeCompanyLayoffRisk`

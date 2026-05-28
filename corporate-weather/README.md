@@ -1,6 +1,6 @@
-# Skybridge Boilerplate
+# Corporate Weather
 
-A minimal TypeScript boilerplate for building MCP and ChatGPT Apps with the [Skybridge](https://docs.skybridge.tech) framework.
+Corporate Weather is a DACH-focused Skybridge GPT app that analyzes visible public workplace risk signals. It is signal analysis only, not a prediction or legal advice.
 
 ## Getting Started
 
@@ -26,7 +26,7 @@ yarn install
 
 #### 2. Start your local server
 
-Run the development server from the root directory:
+Run the development server from this app directory:
 
 ```bash
 npm run dev
@@ -44,11 +44,34 @@ This command starts:
 - Your MCP server at `http://localhost:3000/mcp`.
 - Skybridge DevTools UI at `http://localhost:3000`.
 
+### Optional public search API
+
+LinkedIn employee clusters are checked through public web-search snippets only when a search API key is configured. Without a key, the app labels LinkedIn as `not_configured` and treats that as missing evidence.
+
+Supported providers:
+
+```bash
+# Brave Search API
+SEARCH_API_PROVIDER=brave
+BRAVE_SEARCH_API_KEY=...
+
+# SerpApi
+SEARCH_API_PROVIDER=serpapi
+SERPAPI_API_KEY=...
+
+# Tavily
+SEARCH_API_PROVIDER=tavily
+TAVILY_API_KEY=...
+```
+
+You can also use `SEARCH_API_KEY` with `SEARCH_API_PROVIDER`.
+
 #### 3. Project structure
 
 ```
 ├── src/
-│   ├── server.ts         # Server entry point
+│   ├── risk-model.ts     # DACH source strategy and scoring model
+│   ├── server.ts         # MCP server entry point
 │   └── helpers.ts        # Shared utilities
 ├── vite.config.ts
 ├── alpic.json            # Deployment config

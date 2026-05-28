@@ -50,6 +50,14 @@ type RiskOutput = {
     explanation: string;
   }>;
   dachLegalTermsDetected: string[];
+  sourceChecks: Array<{
+    source: string;
+    status: "checked" | "not_configured" | "error" | "demo";
+    provider?: string;
+    queryCount: number;
+    resultCount: number;
+    summary: string;
+  }>;
   missingEvidence: string[];
   watchNext: string[];
   scoreDetails: {
@@ -143,6 +151,9 @@ export default function RiskDashboard() {
 
   const circumference = 2 * Math.PI * 48;
   const offset = circumference - (output.riskScore / 100) * circumference;
+  const linkedInSourceCheck = output.sourceChecks.find((check) =>
+    check.source.toLowerCase().includes("linkedin"),
+  );
 
   return (
     <main className="risk-shell">
@@ -262,8 +273,8 @@ export default function RiskDashboard() {
           </div>
           {output.employeeLayoffClusters.length === 0 ? (
             <p>
-              LinkedIn employee clusters were not verified by the current source access. Treat
-              this as missing evidence, not proof that no employee posts exist.
+              {linkedInSourceCheck?.summary ??
+                "LinkedIn employee clusters were not verified by the current source access. Treat this as missing evidence, not proof that no employee posts exist."}
             </p>
           ) : (
             <div className="cluster-list">
@@ -290,6 +301,15 @@ export default function RiskDashboard() {
               ))}
             </div>
           )}
+          {linkedInSourceCheck ? (
+            <div className="source-check">
+              <span>{linkedInSourceCheck.status.replace("_", " ")}</span>
+              <strong>{linkedInSourceCheck.provider ?? "no provider"}</strong>
+              <p>
+                {linkedInSourceCheck.queryCount} queries, {linkedInSourceCheck.resultCount} matching results
+              </p>
+            </div>
+          ) : null}
         </div>
 
         <div className="section-block compact">

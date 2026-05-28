@@ -50,6 +50,15 @@ const employeeLayoffClusterSchema = z.object({
   explanation: z.string(),
 });
 
+const sourceCheckSchema = z.object({
+  source: z.string(),
+  status: z.enum(["checked", "not_configured", "error", "demo"]),
+  provider: z.string().optional(),
+  queryCount: z.number().int().min(0),
+  resultCount: z.number().int().min(0),
+  summary: z.string(),
+});
+
 const scoreDetailsSchema = z.object({
   rawRiskScore: z.number().min(0).max(100),
   calmModifierTotal: z.number().min(-100).max(0),
@@ -77,6 +86,7 @@ export const riskOutputSchema = {
   calmSignals: z.array(calmSignalSchema),
   employeeLayoffClusters: z.array(employeeLayoffClusterSchema),
   dachLegalTermsDetected: z.array(z.string()),
+  sourceChecks: z.array(sourceCheckSchema),
   missingEvidence: z.array(z.string()),
   watchNext: z.array(z.string()),
   scoreDetails: scoreDetailsSchema,
@@ -86,6 +96,7 @@ type Country = z.infer<typeof countrySchema>;
 type Signal = z.infer<typeof signalSchema>;
 type CalmSignal = z.infer<typeof calmSignalSchema>;
 type EmployeeLayoffCluster = z.infer<typeof employeeLayoffClusterSchema>;
+type SourceCheck = z.infer<typeof sourceCheckSchema>;
 type RiskLevel = z.infer<typeof riskOutputSchema.riskLevel>;
 type Confidence = z.infer<typeof riskOutputSchema.confidence>;
 type SignalScale = Signal["severity"];
@@ -102,9 +113,24 @@ export type RiskOutput = {
   calmSignals: CalmSignal[];
   employeeLayoffClusters: EmployeeLayoffCluster[];
   dachLegalTermsDetected: string[];
+  sourceChecks: SourceCheck[];
   missingEvidence: string[];
   watchNext: string[];
   scoreDetails: ScoreDetails;
+};
+
+type SearchProvider = "brave" | "serpapi" | "tavily";
+
+type SearchConfig = {
+  provider: SearchProvider;
+  apiKey: string;
+};
+
+type SearchResult = {
+  title: string;
+  url: string;
+  snippet: string;
+  age?: string;
 };
 
 const dachPressSources = [
@@ -163,6 +189,19 @@ const kununuPatterns = [
   "Angst",
   "Führungswechsel",
   "Einstellungsstopp",
+];
+
+const linkedInSearchPhrases = [
+  "affected by layoffs",
+  "impacted by restructuring",
+  "my role was eliminated",
+  "open to work",
+  "leaving",
+  "nach meiner Kündigung",
+  "von Stellenabbau betroffen",
+  "nach der Umstrukturierung",
+  "suche eine neue Herausforderung",
+  "betroffen von der Restrukturierung",
 ];
 
 const categoryCaps: Record<RiskCategory, number> = {
@@ -237,6 +276,293 @@ function employeeCluster(
   explanation: string,
 ): EmployeeLayoffCluster {
   return { title, postCount, timeWindow, severity, confidence, evidence, explanation };
+}
+
+function sourceCheck(
+  source: string,
+  status: SourceCheck["status"],
+  provider: string | undefined,
+  queryCount: number,
+  resultCount: number,
+  summary: string,
+): SourceCheck {
+  return { source, status, provider, queryCount, resultCount, summary };
+}
+
+function getSearchConfig(): SearchConfig | undefined {
+  const requestedProvider = process.env.SEARCH_API_PROVIDER?.toLowerCase() as
+    | SearchProvider
+    | undefined;
+
+  if (requestedProvider === "brave") {
+    const apiKey = process.env.BRAVE_SEARCH_API_KEY ?? process.env.SEARCH_API_KEY;
+    return apiKey ? { provider: "brave", apiKey } : undefined;
+  }
+
+  if (requestedProvider === "serpapi") {
+    const apiKey = process.env.SERPAPI_API_KEY ?? process.env.SEARCH_API_KEY;
+    return apiKey ? { provider: "serpapi", apiKey } : undefined;
+  }
+
+  if (requestedProvider === "tavily") {
+    const apiKey = process.env.TAVILY_API_KEY ?? process.env.SEARCH_API_KEY;
+    return apiKey ? { provider: "tavily", apiKey } : undefined;
+  }
+
+  if (process.env.BRAVE_SEARCH_API_KEY) {
+    return { provider: "brave", apiKey: process.env.BRAVE_SEARCH_API_KEY };
+  }
+
+  if (process.env.SERPAPI_API_KEY) {
+    return { provider: "serpapi", apiKey: process.env.SERPAPI_API_KEY };
+  }
+
+  if (process.env.TAVILY_API_KEY) {
+    return { provider: "tavily", apiKey: process.env.TAVILY_API_KEY };
+  }
+
+  if (process.env.SEARCH_API_KEY) {
+    return { provider: "brave", apiKey: process.env.SEARCH_API_KEY };
+  }
+
+  return undefined;
+}
+
+function buildLinkedInQueries(companyName: string) {
+  const quotedCompany = `"${companyName}"`;
+  return linkedInSearchPhrases.map(
+    (phrase) => `site:linkedin.com/posts ${quotedCompany} "${phrase}"`,
+  );
+}
+
+function toText(value: unknown) {
+  return typeof value === "string" ? value : "";
+}
+
+function normalizeSearchResult(result: SearchResult) {
+  return `${result.title} ${result.snippet}`.toLowerCase();
+}
+
+function isLinkedInResult(result: SearchResult) {
+  return /linkedin\.com\/(posts|feed\/update|in)\//i.test(result.url);
+}
+
+function resultMatchesLayoffPattern(result: SearchResult) {
+  const text = normalizeSearchResult(result);
+  return linkedInSearchPhrases.some((phrase) => text.includes(phrase.toLowerCase())) ||
+    /stellenabbau|kündigung|restrukturierung|umstrukturierung|open to work|layoff|role was eliminated|betroffen/i.test(
+      text,
+    );
+}
+
+async function searchWeb(query: string, config: SearchConfig): Promise<SearchResult[]> {
+  if (config.provider === "brave") {
+    const url = new URL("https://api.search.brave.com/res/v1/web/search");
+    url.searchParams.set("q", query);
+    url.searchParams.set("count", "10");
+    url.searchParams.set("country", "DE");
+    url.searchParams.set("search_lang", "de");
+    url.searchParams.set("freshness", "py");
+
+    const response = await fetch(url, {
+      headers: {
+        Accept: "application/json",
+        "X-Subscription-Token": config.apiKey,
+      },
+      signal: AbortSignal.timeout(8_000),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Brave Search returned ${response.status}`);
+    }
+
+    const data = (await response.json()) as {
+      web?: { results?: Array<{ title?: string; url?: string; description?: string; age?: string }> };
+    };
+
+    return (data.web?.results ?? []).map((item) => ({
+      title: toText(item.title),
+      url: toText(item.url),
+      snippet: toText(item.description),
+      age: toText(item.age),
+    }));
+  }
+
+  if (config.provider === "serpapi") {
+    const url = new URL("https://serpapi.com/search.json");
+    url.searchParams.set("engine", "google");
+    url.searchParams.set("q", query);
+    url.searchParams.set("api_key", config.apiKey);
+    url.searchParams.set("hl", "de");
+    url.searchParams.set("gl", "de");
+    url.searchParams.set("num", "10");
+
+    const response = await fetch(url, { signal: AbortSignal.timeout(8_000) });
+
+    if (!response.ok) {
+      throw new Error(`SerpApi returned ${response.status}`);
+    }
+
+    const data = (await response.json()) as {
+      organic_results?: Array<{ title?: string; link?: string; snippet?: string; date?: string }>;
+    };
+
+    return (data.organic_results ?? []).map((item) => ({
+      title: toText(item.title),
+      url: toText(item.link),
+      snippet: toText(item.snippet),
+      age: toText(item.date),
+    }));
+  }
+
+  const response = await fetch("https://api.tavily.com/search", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${config.apiKey}`,
+    },
+    body: JSON.stringify({
+      query,
+      max_results: 10,
+      search_depth: "basic",
+      include_answer: false,
+      include_raw_content: false,
+      include_images: false,
+    }),
+    signal: AbortSignal.timeout(8_000),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Tavily returned ${response.status}`);
+  }
+
+  const data = (await response.json()) as {
+    results?: Array<{ title?: string; url?: string; content?: string; published_date?: string }>;
+  };
+
+  return (data.results ?? []).map((item) => ({
+    title: toText(item.title),
+    url: toText(item.url),
+    snippet: toText(item.content),
+    age: toText(item.published_date),
+  }));
+}
+
+function classifyLinkedInResults(companyName: string, results: SearchResult[]) {
+  const deduped = new Map<string, SearchResult>();
+
+  for (const result of results) {
+    if (!result.url || !isLinkedInResult(result) || !resultMatchesLayoffPattern(result)) continue;
+    const key = result.url.split("?")[0] || `${result.title}:${result.snippet}`;
+    deduped.set(key, result);
+  }
+
+  const matches = [...deduped.values()];
+  const postCount = matches.length;
+
+  if (postCount === 0) {
+    return { matches, cluster: undefined, signal: undefined };
+  }
+
+  const severity: SignalScale = postCount >= 10 ? 4 : postCount >= 6 ? 4 : postCount >= 3 ? 3 : 2;
+  const confidence: SignalScale = postCount >= 10 ? 5 : postCount >= 6 ? 4 : postCount >= 3 ? 3 : 2;
+  const recency: SignalScale = postCount >= 10 ? 5 : postCount >= 3 ? 4 : 3;
+  const sampleEvidence = matches
+    .slice(0, 3)
+    .map((item) => `${item.title || "LinkedIn result"}: ${item.snippet || item.url}`)
+    .join(" | ");
+
+  return {
+    matches,
+    cluster: employeeCluster(
+      postCount >= 3 ? "employeeLayoffCluster" : "isolatedLinkedInEmployeeSignal",
+      postCount,
+      postCount >= 10 ? "recent public snippets, likely 30-60 day cluster" : "public search snippets",
+      severity,
+      confidence,
+      sampleEvidence,
+      postCount >= 3
+        ? "Public LinkedIn snippets show repeated layoff, restructuring, or open-to-work language connected to this company."
+        : "One isolated public LinkedIn snippet is weak evidence and should not dominate the score.",
+    ),
+    signal: signal(
+      postCount >= 3 ? "LinkedIn employee signal cluster" : "Isolated LinkedIn employee signal",
+      "LinkedIn Employee Cluster",
+      severity,
+      confidence,
+      recency,
+      postCount >= 3 ? 4 : 2,
+      true,
+      `${postCount} public LinkedIn result${postCount === 1 ? "" : "s"} matched layoff or restructuring language for ${companyName}.`,
+      postCount >= 3
+        ? "Repeated employee snippets are company-specific evidence, though snippet-only results still need cautious interpretation."
+        : "A single snippet is low-confidence employee evidence and should be treated cautiously.",
+    ),
+  };
+}
+
+async function collectLinkedInEmployeeSignals(companyName: string) {
+  const config = getSearchConfig();
+  const queries = buildLinkedInQueries(companyName);
+
+  if (!config) {
+    return {
+      signals: [] as Signal[],
+      clusters: [] as EmployeeLayoffCluster[],
+      sourceCheck: sourceCheck(
+        "LinkedIn public snippets",
+        "not_configured",
+        undefined,
+        queries.length,
+        0,
+        "LinkedIn public snippets were not checked because no search API key is configured.",
+      ),
+      missingEvidence:
+        "LinkedIn public snippets were not checked. Configure SEARCH_API_PROVIDER plus a provider API key to verify employee clusters.",
+    };
+  }
+
+  try {
+    const settled = await Promise.allSettled(
+      queries.map(async (query) => searchWeb(query, config)),
+    );
+    const results = settled.flatMap((item) => (item.status === "fulfilled" ? item.value : []));
+    const classified = classifyLinkedInResults(companyName, results);
+
+    return {
+      signals: classified.signal ? [classified.signal] : [],
+      clusters: classified.cluster ? [classified.cluster] : [],
+      sourceCheck: sourceCheck(
+        "LinkedIn public snippets",
+        "checked",
+        config.provider,
+        queries.length,
+        classified.matches.length,
+        classified.matches.length > 0
+          ? `Checked public LinkedIn snippets and found ${classified.matches.length} layoff/restructuring match${classified.matches.length === 1 ? "" : "es"}.`
+          : "Checked public LinkedIn snippets but did not find enough matching public results. This does not prove no posts exist behind LinkedIn login.",
+      ),
+      missingEvidence:
+        classified.matches.length > 0
+          ? undefined
+          : "Public search did not return enough LinkedIn layoff/open-to-work snippets; LinkedIn may still contain posts behind login or outside search indexing.",
+    };
+  } catch (error) {
+    return {
+      signals: [] as Signal[],
+      clusters: [] as EmployeeLayoffCluster[],
+      sourceCheck: sourceCheck(
+        "LinkedIn public snippets",
+        "error",
+        config.provider,
+        queries.length,
+        0,
+        `LinkedIn public snippet search failed: ${error instanceof Error ? error.message : "unknown error"}.`,
+      ),
+      missingEvidence:
+        "LinkedIn public snippet search failed, so employee clusters could not be verified.",
+    };
+  }
 }
 
 function isGenericMarketSignal(item: Signal) {
@@ -474,6 +800,7 @@ function buildRiskOutput(
   calmSignals: CalmSignal[],
   employeeLayoffClusters: EmployeeLayoffCluster[],
   dachLegalTermsDetected: string[],
+  sourceChecks: SourceCheck[],
   missingEvidence: string[],
   watchNext: string[],
   summary?: string,
@@ -493,6 +820,7 @@ function buildRiskOutput(
     calmSignals,
     employeeLayoffClusters,
     dachLegalTermsDetected,
+    sourceChecks,
     missingEvidence,
     watchNext,
     scoreDetails,
@@ -549,6 +877,16 @@ const healthyDemoData = buildRiskOutput(
   [],
   [],
   [
+    sourceCheck(
+      "LinkedIn public snippets",
+      "demo",
+      undefined,
+      0,
+      0,
+      "Demo scenario: no LinkedIn employee cluster is included in the sample evidence.",
+    ),
+  ],
+  [
     "No confirmed DACH legal or workplace layoff terms were found in the demo evidence.",
     "No employee layoff cluster is included in the healthy demo evidence.",
   ],
@@ -600,6 +938,16 @@ const normalSaasDemoData = buildRiskOutput(
   ],
   [],
   [],
+  [
+    sourceCheck(
+      "LinkedIn public snippets",
+      "demo",
+      undefined,
+      0,
+      0,
+      "Demo scenario: no LinkedIn employee cluster is included in the sample evidence.",
+    ),
+  ],
   [
     "No confirmed layoffs or Stellenabbau were found.",
     "No Kununu pattern or LinkedIn employee cluster is included in the demo evidence.",
@@ -663,6 +1011,16 @@ const watchlistTechDemoData = buildRiskOutput(
   ],
   [],
   [],
+  [
+    sourceCheck(
+      "LinkedIn public snippets",
+      "demo",
+      undefined,
+      0,
+      0,
+      "Demo scenario: this case focuses on Kununu uncertainty and hiring slowdown, not a LinkedIn cluster.",
+    ),
+  ],
   [
     "No confirmed layoffs were found.",
     "No employee layoff cluster is included in this Watchlist demo evidence.",
@@ -731,6 +1089,16 @@ const recentLayoffDemoData = buildRiskOutput(
     ),
   ],
   [],
+  [
+    sourceCheck(
+      "LinkedIn public snippets",
+      "demo",
+      undefined,
+      0,
+      7,
+      "Demo scenario: repeated LinkedIn employee snippets are included as an employeeLayoffCluster.",
+    ),
+  ],
   ["No Sozialplan or Interessenausgleich was found.", "No reputable DACH press confirmation was found."],
   [
     "Watch for reputable DACH press confirmation.",
@@ -786,6 +1154,16 @@ const stormDemoData = buildRiskOutput(
   ],
   [],
   ["Stellenabbau", "Sozialplan", "Betriebsrat", "Interessenausgleich", "Standortschließung"],
+  [
+    sourceCheck(
+      "LinkedIn public snippets",
+      "demo",
+      undefined,
+      0,
+      0,
+      "Demo scenario: StormAG is driven by formal DACH legal and press evidence, not LinkedIn snippets.",
+    ),
+  ],
   [],
   [
     "Watch Sozialplan timeline, affected locations, and confirmed headcount scope.",
@@ -900,41 +1278,6 @@ function collectSignals(companyName: string, country: Country | undefined) {
     missingEvidence.push("No repeated Kununu uncertainty pattern was found.");
   }
 
-  if ((seed >> 6) % 8 >= 6) {
-    const postCount = ((seed >> 3) % 5) + 3;
-    const severity: SignalScale = postCount >= 6 ? 4 : 3;
-    const confidence: SignalScale = postCount >= 6 ? 4 : 3;
-    clusters.push(
-      employeeCluster(
-        "employeeLayoffCluster",
-        postCount,
-        "last 31-90 days",
-        severity,
-        confidence,
-        `Simulated LinkedIn snippets match ${linkedInLayoffPatterns.slice(0, 4).join(", ")}.`,
-        "Recent repeated employee posts are treated as a cluster, not as a prediction.",
-      ),
-    );
-    addSignal(
-      signals,
-      signal(
-        "LinkedIn employee layoff cluster",
-        "LinkedIn Employee Cluster",
-        severity,
-        confidence,
-        4,
-        4,
-        true,
-        `${postCount} simulated public posts connect open-to-work or restructuring language to ${companyName}.`,
-        "Multiple posts increase confidence, but isolated posts would stay low-confidence.",
-      ),
-    );
-  } else {
-    missingEvidence.push(
-      "LinkedIn employee layoff/open-to-work clusters were not verified by the current simulated source access.",
-    );
-  }
-
   if ((seed >> 8) % 14 === 13) {
     detectedTerms.push("Sozialplan", "Betriebsrat", "Stellenabbau");
     addSignal(
@@ -977,11 +1320,17 @@ function collectSignals(companyName: string, country: Country | undefined) {
   return { signals, calmSignals, clusters, detectedTerms, missingEvidence };
 }
 
-function liveAnalysis(companyName: string, country?: Country) {
+async function liveAnalysis(companyName: string, country?: Country) {
   const { signals, calmSignals, clusters, detectedTerms, missingEvidence } = collectSignals(
     companyName,
     country,
   );
+  const linkedInSignals = await collectLinkedInEmployeeSignals(companyName);
+  signals.push(...linkedInSignals.signals);
+  clusters.push(...linkedInSignals.clusters);
+  if (linkedInSignals.missingEvidence) {
+    missingEvidence.push(linkedInSignals.missingEvidence);
+  }
 
   return buildRiskOutput(
     companyName,
@@ -989,6 +1338,7 @@ function liveAnalysis(companyName: string, country?: Country) {
     calmSignals,
     clusters,
     detectedTerms,
+    [linkedInSignals.sourceCheck],
     missingEvidence,
     [
       "Watch for reputable DACH press confirmation from sources such as Handelsblatt, WirtschaftsWoche, Manager Magazin, t3n, Heise, FAZ, or Süddeutsche.",
@@ -1037,6 +1387,16 @@ function genericCloudyDemoData(companyName: string): RiskOutput {
     [],
     [],
     [
+      sourceCheck(
+        "LinkedIn public snippets",
+        "error",
+        undefined,
+        buildLinkedInQueries(companyName).length,
+        0,
+        "LinkedIn public snippets were not verified because live analysis failed.",
+      ),
+    ],
+    [
       "Live analysis failed, so this result uses cautious fallback data.",
       "No verified DACH legal/process terms were available in the fallback path.",
     ],
@@ -1052,14 +1412,14 @@ function normalizeDemoKey(companyName: string) {
   return companyName.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
-export function analyzeCompany(companyName: string, country?: Country): RiskOutput {
+export async function analyzeCompany(companyName: string, country?: Country): Promise<RiskOutput> {
   const demoData = demoCompanies[normalizeDemoKey(companyName)];
   if (demoData) {
     return demoData;
   }
 
   try {
-    return liveAnalysis(companyName, country);
+    return await liveAnalysis(companyName, country);
   } catch {
     return genericCloudyDemoData(companyName);
   }

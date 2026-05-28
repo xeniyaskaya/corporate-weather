@@ -37,7 +37,7 @@ const server = new McpServer(
     },
   },
   async ({ companyName, country }) => {
-    const structuredContent = analyzeCompany(companyName.trim(), country);
+    const structuredContent = await analyzeCompany(companyName.trim(), country);
 
     return {
       structuredContent,

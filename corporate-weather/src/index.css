@@ -495,6 +495,36 @@ li {
   font-weight: 800;
 }
 
+.source-check {
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid rgba(210, 225, 238, 0.1);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.source-check span {
+  display: inline-block;
+  margin-right: 8px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(183, 200, 255, 0.13);
+  color: #b7c8ff;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.source-check strong {
+  color: #eef4f8;
+  font-size: 13px;
+}
+
+.source-check p {
+  margin: 8px 0 0;
+  color: #9aa8ba;
+  font-size: 13px;
+}
+
 .two-column {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
