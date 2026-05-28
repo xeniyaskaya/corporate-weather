@@ -261,7 +261,10 @@ export default function RiskDashboard() {
             <h2>Employee Signal Clusters</h2>
           </div>
           {output.employeeLayoffClusters.length === 0 ? (
-            <p>No recent LinkedIn employee layoff/open-to-work cluster was found.</p>
+            <p>
+              LinkedIn employee clusters were not verified by the current source access. Treat
+              this as missing evidence, not proof that no employee posts exist.
+            </p>
           ) : (
             <div className="cluster-list">
               {output.employeeLayoffClusters.map((cluster, index) => (

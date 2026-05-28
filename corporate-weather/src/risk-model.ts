@@ -534,10 +534,10 @@ const healthyDemoData = buildRiskOutput(
       "Growth activity lowers concern, while not proving anything about future staffing.",
     ),
     calmSignal(
-      "No negative employee cluster",
+      "No employee cluster in demo evidence",
       -8,
-      "No recent LinkedIn or Kununu cluster was detected.",
-      "Missing employee cluster evidence keeps the score limited.",
+      "The healthy demo scenario does not include recent LinkedIn or Kununu employee-cluster evidence.",
+      "This is a demo counter-signal, not a claim about live LinkedIn coverage.",
     ),
     calmSignal(
       "No DACH legal layoff terms found",
@@ -548,7 +548,10 @@ const healthyDemoData = buildRiskOutput(
   ],
   [],
   [],
-  ["No confirmed DACH legal or workplace layoff terms were found.", "No employee layoff cluster was found."],
+  [
+    "No confirmed DACH legal or workplace layoff terms were found in the demo evidence.",
+    "No employee layoff cluster is included in the healthy demo evidence.",
+  ],
   [
     "Watch whether hiring remains active across several functions.",
     "Monitor for formal DACH workplace terms if restructuring news appears.",
@@ -583,10 +586,10 @@ const normalSaasDemoData = buildRiskOutput(
   ],
   [
     calmSignal(
-      "No employee layoff cluster",
+      "No employee cluster in demo evidence",
       -4,
-      "No repeated LinkedIn open-to-work or layoff-connected posts were detected.",
-      "Without employee clusters, the score remains a cautious Watchlist.",
+      "The NormalSaaS demo scenario does not include repeated LinkedIn open-to-work or layoff-connected posts.",
+      "This keeps the demo cautious without implying live LinkedIn was fully checked.",
     ),
     calmSignal(
       "No DACH legal layoff terms found",
@@ -599,7 +602,7 @@ const normalSaasDemoData = buildRiskOutput(
   [],
   [
     "No confirmed layoffs or Stellenabbau were found.",
-    "No Kununu pattern or LinkedIn employee cluster was found.",
+    "No Kununu pattern or LinkedIn employee cluster is included in the demo evidence.",
   ],
   [
     "Watch whether efficiency language becomes tied to headcount, consolidation, or budget cuts.",
@@ -662,7 +665,7 @@ const watchlistTechDemoData = buildRiskOutput(
   [],
   [
     "No confirmed layoffs were found.",
-    "No employee layoff cluster was found.",
+    "No employee layoff cluster is included in this Watchlist demo evidence.",
     "No Sozialplan, Interessenausgleich, or Standortschließung was found.",
   ],
   [
@@ -927,13 +930,8 @@ function collectSignals(companyName: string, country: Country | undefined) {
       ),
     );
   } else {
-    calmSignals.push(
-      calmSignal(
-        "No negative employee cluster",
-        -8,
-        "No repeated LinkedIn layoff/open-to-work cluster was found.",
-        "Missing employee-cluster evidence limits the score.",
-      ),
+    missingEvidence.push(
+      "LinkedIn employee layoff/open-to-work clusters were not verified by the current simulated source access.",
     );
   }
 
