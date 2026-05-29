@@ -55,6 +55,29 @@ const mapCompanies = [
   },
 ];
 
+const weatherStates = [
+  {
+    name: "Clear",
+    score: "0-25",
+    detail: "Limited visible public risk signals",
+  },
+  {
+    name: "Watchlist",
+    score: "26-50",
+    detail: "Weak or early signals need monitoring",
+  },
+  {
+    name: "Cloudy",
+    score: "51-75",
+    detail: "Recent company-specific evidence appears",
+  },
+  {
+    name: "Storm Warning",
+    score: "76-100",
+    detail: "Strong public evidence or employee clusters",
+  },
+];
+
 type Screen = "landing" | "report" | "map";
 
 type RiskOutput = {
@@ -119,12 +142,16 @@ function SearchForm({
   companyName,
   isSearching,
   label = "Company",
+  ctaLabel = "Analyze",
+  placeholder = "Try HealthyCo GmbH, RecentLayoff GmbH, or StormAG",
   onCompanyChange,
   onSubmit,
 }: {
   companyName: string;
   isSearching: boolean;
   label?: string;
+  ctaLabel?: string;
+  placeholder?: string;
   onCompanyChange: (value: string) => void;
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
 }) {
@@ -135,11 +162,11 @@ function SearchForm({
         <input
           value={companyName}
           onChange={(event) => onCompanyChange(event.target.value)}
-          placeholder="Try HealthyCo GmbH, RecentLayoff GmbH, or StormAG"
+          placeholder={placeholder}
         />
       </label>
       <button type="submit" disabled={isSearching || !companyName.trim()}>
-        {isSearching ? "Analyzing" : "Analyze"}
+        {isSearching ? "Scanning" : ctaLabel}
       </button>
     </form>
   );
@@ -161,15 +188,19 @@ function LandingScreen({
   return (
     <main className="risk-shell">
       <section className="landing-hero">
-        <p className="eyebrow">Corporate Weather</p>
-        <h1>DACH workplace weather from public signals</h1>
+        <div className="product-mark">
+          <span>CW</span>
+          <strong>Corporate Weather</strong>
+        </div>
+        <h1>Corporate Weather</h1>
         <p className="summary">
-          Search a company to see visible risk signals, employee clusters, source coverage,
-          and calm counter-signals.
+          DACH workplace weather radar for visible restructuring and layoff-risk signals.
         </p>
         <SearchForm
           companyName={companyName}
           isSearching={isSearching}
+          ctaLabel="Scan company weather"
+          placeholder="Search a company, e.g. Personio, Zalando, Delivery Hero"
           onCompanyChange={onCompanyChange}
           onSubmit={onSubmit}
         />
@@ -178,22 +209,14 @@ function LandingScreen({
         </button>
       </section>
 
-      <section className="landing-grid">
-        <article>
-          <span>01</span>
-          <h2>Search</h2>
-          <p>Start with a company name and run the public-signal scan.</p>
-        </article>
-        <article>
-          <span>02</span>
-          <h2>Read the Weather</h2>
-          <p>Review risk signals, calm signals, missing evidence, and source checks.</p>
-        </article>
-        <article>
-          <span>03</span>
-          <h2>Scan the Map</h2>
-          <p>Compare calibrated DACH examples and open a report from the map.</p>
-        </article>
+      <section className="weather-states" aria-label="Weather state examples">
+        {weatherStates.map((state) => (
+          <article className={`weather-state ${levelClass[state.name as keyof typeof levelClass]}`} key={state.name}>
+            <span>{state.score}</span>
+            <h2>{state.name}</h2>
+            <p>{state.detail}</p>
+          </article>
+        ))}
       </section>
     </main>
   );
