@@ -52,4 +52,4 @@ Analyze company layoff risk:
 **View: RiskDashboard**
 - **Input**: Same as `analyzeCompanyLayoffRisk`
 - **Output**: Same as `analyzeCompanyLayoffRisk`
-- **Behavior**: Presents score, weather label, confidence, risk signals, calm signals, source checks, missing evidence, why-not-higher and why-not-lower explanations, category contributions, and watch-next items.
+- **Behavior**: Presents a three-screen product flow: landing/search, company weather report, and DACH market radar. The company report uses a top hero card for company name, weather state, score, confidence, and summary, followed by risk signals, calm signals, employee/public sentiment patterns, DACH workplace terms, missing evidence, and score guardrail explanations.

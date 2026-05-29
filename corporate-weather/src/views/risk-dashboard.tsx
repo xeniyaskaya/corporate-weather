@@ -78,6 +78,20 @@ const weatherStates = [
   },
 ];
 
+const workplaceTerms = [
+  "Stellenabbau",
+  "Entlassungen",
+  "Kündigungen",
+  "betriebsbedingte Kündigungen",
+  "Restrukturierung",
+  "Umstrukturierung",
+  "Standortschließung",
+  "Einstellungsstopp",
+  "Kurzarbeit",
+  "Sparprogramm",
+  "Effizienzprogramm",
+];
+
 type Screen = "landing" | "report" | "map";
 
 type RiskOutput = {
@@ -213,6 +227,87 @@ function LandingScreen({
   );
 }
 
+function firstSentence(text: string) {
+  const match = text.match(/^.*?[.!?](?:\s|$)/);
+  return (match?.[0] ?? text).trim();
+}
+
+function findWorkplaceTerms(output: RiskOutput) {
+  const evidenceText = output.signals
+    .map((signal) => `${signal.title} ${signal.evidence} ${signal.explanation}`)
+    .join(" ");
+
+  return workplaceTerms.filter((term) =>
+    evidenceText.toLowerCase().includes(term.toLowerCase()),
+  );
+}
+
+function SignalCard({
+  signal,
+}: {
+  signal: RiskOutput["signals"][number];
+}) {
+  return (
+    <article className="signal-card">
+      <div>
+        <span>{signal.category}</span>
+        <strong>{signal.title}</strong>
+      </div>
+      <p>{signal.explanation}</p>
+      <dl>
+        <div>
+          <dt>Severity</dt>
+          <dd>{scaleLabel[signal.severity]}</dd>
+        </div>
+        <div>
+          <dt>Confidence</dt>
+          <dd>{scaleLabel[signal.confidence]}</dd>
+        </div>
+        <div>
+          <dt>Recency</dt>
+          <dd>{scaleLabel[signal.recency]}</dd>
+        </div>
+      </dl>
+    </article>
+  );
+}
+
+function CalmCard({
+  signal,
+}: {
+  signal: RiskOutput["calmSignals"][number];
+}) {
+  return (
+    <article className="signal-card calm-card">
+      <div>
+        <span>{signal.impact} pts</span>
+        <strong>{signal.title}</strong>
+      </div>
+      <p>{signal.explanation}</p>
+    </article>
+  );
+}
+
+function ReportSection({
+  eyebrow,
+  title,
+  children,
+}: {
+  eyebrow: string;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="report-section">
+      <div className="section-heading">
+        <p className="eyebrow">{eyebrow}</p>
+        <h2>{title}</h2>
+      </div>
+      {children}
+    </section>
+  );
+}
+
 function ReportScreen({
   output,
   onBack,
@@ -224,8 +319,8 @@ function ReportScreen({
 }) {
   const circumference = 2 * Math.PI * 48;
   const offset = circumference - (output.riskScore / 100) * circumference;
-  const topSignals = output.signals.slice(0, 3);
-  const topCalmSignals = output.calmSignals.slice(0, 2);
+  const employeeSignals = output.signals.filter((signal) => signal.category === "Kununu");
+  const detectedTerms = findWorkplaceTerms(output);
 
   return (
     <main className="risk-shell">
@@ -234,15 +329,20 @@ function ReportScreen({
           Search
         </button>
         <button type="button" onClick={onOpenMap}>
-          DACH Weather Map
+          Open DACH Market Radar
         </button>
       </nav>
 
-      <section className={`hero ${levelClass[output.riskLevel]}`}>
+      <section className={`hero report-hero ${levelClass[output.riskLevel]}`}>
         <div className="hero-copy">
-          <p className="eyebrow">{output.companyName}</p>
-          <h1>Corporate Weather: {output.riskLevel}</h1>
-          <p className="summary">{output.summary}</p>
+          <p className="eyebrow">Company Weather Report</p>
+          <h1>{output.companyName}</h1>
+          <div className="report-hero-meta">
+            <span>{output.riskLevel}</span>
+            <span>Risk {output.riskScore}/100</span>
+            <span>{output.confidence} confidence</span>
+          </div>
+          <p className="summary">{firstSentence(output.summary)}</p>
         </div>
 
         <div className="score-wrap" aria-label={`Risk score ${output.riskScore} out of 100`}>
@@ -266,8 +366,12 @@ function ReportScreen({
 
       <section className="metric-strip report-metrics" aria-label="Risk summary">
         <div>
-          <span>Risk</span>
+          <span>Risk Score</span>
           <strong>{output.riskScore}/100</strong>
+        </div>
+        <div>
+          <span>Weather State</span>
+          <strong>{output.riskLevel}</strong>
         </div>
         <div>
           <span>Confidence</span>
@@ -275,47 +379,96 @@ function ReportScreen({
         </div>
       </section>
 
-      <section className="report-grid">
-        <article className="report-panel wide">
-          <p className="eyebrow">Reading</p>
-          <h2>What Changed the Weather</h2>
-          <div className="mini-signal-list">
-            {topSignals.map((signal, index) => (
-              <div key={`${signal.title}-${index}`}>
-                <span>{signal.category}</span>
-                <strong>{signal.title}</strong>
-                <p>{signal.explanation}</p>
-              </div>
-            ))}
+      <button className="radar-link" type="button" onClick={onOpenMap}>
+        Open DACH Market Radar
+      </button>
+
+      <div className="report-sections">
+        <ReportSection eyebrow="Signals" title="Risk Signals">
+          <div className="signal-grid">
+            {output.signals.length > 0 ? (
+              output.signals.map((signal, index) => (
+                <SignalCard key={`${signal.title}-${index}`} signal={signal} />
+              ))
+            ) : (
+              <p className="empty-note">No visible risk signals were surfaced in this scan.</p>
+            )}
           </div>
-        </article>
+        </ReportSection>
 
-        <article className="report-panel">
-          <p className="eyebrow">Calm</p>
-          <h2>Counter-Signals</h2>
-          {topCalmSignals.length > 0 ? (
-            <ul>
-              {topCalmSignals.map((signal) => (
-                <li key={signal.title}>{signal.title}</li>
+        <ReportSection eyebrow="Calm" title="Calm Signals">
+          <div className="signal-grid">
+            {output.calmSignals.length > 0 ? (
+              output.calmSignals.map((signal) => (
+                <CalmCard key={signal.title} signal={signal} />
+              ))
+            ) : (
+              <p className="empty-note">No calm counter-signals reduced the score.</p>
+            )}
+          </div>
+        </ReportSection>
+
+        <ReportSection eyebrow="Employees" title="Employee Signal Clusters">
+          {employeeSignals.length > 0 ? (
+            <div className="signal-grid">
+              {employeeSignals.map((signal, index) => (
+                <SignalCard key={`${signal.title}-${index}`} signal={signal} />
               ))}
-            </ul>
+            </div>
           ) : (
-            <p>No calm counter-signals reduced the score.</p>
+            <p className="empty-note">
+              No repeated employee sentiment pattern was surfaced from the current public evidence.
+            </p>
           )}
-        </article>
+        </ReportSection>
 
-        <article className="report-panel">
-          <p className="eyebrow">Coverage</p>
-          <h2>Missing Evidence</h2>
-          <p>{output.missingEvidence[0] ?? "No major coverage gaps listed."}</p>
-        </article>
+        <ReportSection eyebrow="DACH" title="DACH Legal/Workplace Terms Detected">
+          {detectedTerms.length > 0 ? (
+            <div className="term-list">
+              {detectedTerms.map((term) => (
+                <span key={term}>{term}</span>
+              ))}
+            </div>
+          ) : (
+            <p className="empty-note">
+              No explicit DACH workplace or restructuring terms were detected in the current evidence.
+            </p>
+          )}
+        </ReportSection>
 
-        <article className="report-panel">
-          <p className="eyebrow">Next</p>
-          <h2>Watch Next</h2>
-          <p>{output.watchNext[0] ?? "Re-run the scan when new public evidence appears."}</p>
-        </article>
-      </section>
+        <ReportSection eyebrow="Coverage" title="Missing Evidence">
+          <ul className="plain-list">
+            {(output.missingEvidence.length > 0
+              ? output.missingEvidence
+              : ["No major coverage gaps were listed for this scan."]
+            ).map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </ReportSection>
+
+        <ReportSection eyebrow="Score" title="Why This Score Is Not Higher">
+          <ul className="plain-list">
+            {(output.scoreDetails.whyNotHigher.length > 0
+              ? output.scoreDetails.whyNotHigher
+              : ["No additional guardrail lowered the score beyond the visible evidence."]
+            ).map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </ReportSection>
+
+        <ReportSection eyebrow="Score" title="Why This Score Is Not Lower">
+          <ul className="plain-list">
+            {(output.scoreDetails.whyNotLower.length > 0
+              ? output.scoreDetails.whyNotLower
+              : ["The score remains limited because high-confidence company-specific evidence is not visible."]
+            ).map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </ReportSection>
+      </div>
 
       <footer className="risk-footer">Signal analysis only. Not a prediction or legal advice.</footer>
     </main>
