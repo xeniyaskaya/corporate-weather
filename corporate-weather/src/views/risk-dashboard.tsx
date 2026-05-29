@@ -242,6 +242,18 @@ function findWorkplaceTerms(output: RiskOutput) {
   );
 }
 
+function recencyLabel(recency: keyof typeof scaleLabel) {
+  if (recency >= 5) return "Last 30 days";
+  if (recency >= 4) return "Last 90 days";
+  if (recency >= 1) return "Older signal";
+  return "Unknown recency";
+}
+
+function shortEvidence(text: string) {
+  if (text.length <= 130) return text;
+  return `${text.slice(0, 127).trim()}...`;
+}
+
 function SignalCard({
   signal,
 }: {
@@ -268,6 +280,30 @@ function SignalCard({
           <dd>{scaleLabel[signal.recency]}</dd>
         </div>
       </dl>
+    </article>
+  );
+}
+
+function TimelineItem({
+  signal,
+}: {
+  signal: RiskOutput["signals"][number];
+}) {
+  return (
+    <article className="timeline-item">
+      <div className="timeline-pin" aria-hidden="true" />
+      <div className="timeline-content">
+        <div className="timeline-topline">
+          <span>{recencyLabel(signal.recency)}</span>
+          <span>{signal.category}</span>
+        </div>
+        <h3>{signal.title}</h3>
+        <p>{shortEvidence(signal.evidence)}</p>
+        <div className="timeline-indicators">
+          <span>Severity: {scaleLabel[signal.severity]}</span>
+          <span>Confidence: {scaleLabel[signal.confidence]}</span>
+        </div>
+      </div>
     </article>
   );
 }
@@ -321,6 +357,7 @@ function ReportScreen({
   const offset = circumference - (output.riskScore / 100) * circumference;
   const employeeSignals = output.signals.filter((signal) => signal.category === "Kununu");
   const detectedTerms = findWorkplaceTerms(output);
+  const timelineItems = [...output.signals].sort((first, second) => second.recency - first.recency);
 
   return (
     <main className="risk-shell">
@@ -384,6 +421,18 @@ function ReportScreen({
       </button>
 
       <div className="report-sections">
+        <ReportSection eyebrow="Recent movement" title="What Changed Recently">
+          {timelineItems.length > 0 ? (
+            <div className="timeline-list">
+              {timelineItems.map((signal, index) => (
+                <TimelineItem key={`${signal.title}-${index}`} signal={signal} />
+              ))}
+            </div>
+          ) : (
+            <p className="empty-note">No recent signal cluster detected.</p>
+          )}
+        </ReportSection>
+
         <ReportSection eyebrow="Signals" title="Risk Signals">
           <div className="signal-grid">
             {output.signals.length > 0 ? (
