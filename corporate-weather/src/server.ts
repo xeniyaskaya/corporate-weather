@@ -4,7 +4,6 @@ import { z } from "zod";
 import { analyzeCompany } from "./risk-model.js";
 
 const dashboardStatusSchema = {
-  companyName: z.string(),
   dashboardStatus: z.literal("ready"),
 };
 
@@ -45,18 +44,12 @@ const server = new McpServer(
 
     return {
       structuredContent: {
-        companyName: structuredContent.companyName,
         dashboardStatus: "ready" as const,
       },
       _meta: {
         result: structuredContent,
       },
-      content: [
-        {
-          type: "text",
-          text: `Corporate Weather dashboard opened for ${structuredContent.companyName}.`,
-        },
-      ],
+      content: [],
     };
   },
 );
