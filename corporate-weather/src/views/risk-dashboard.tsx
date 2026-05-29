@@ -1,5 +1,5 @@
 import "../index.css";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useCallTool, useToolInfo } from "../helpers.js";
 
 const levelClass = {
@@ -16,6 +16,46 @@ const scaleLabel = {
   4: "High",
   5: "High",
 };
+
+const mapCompanies = [
+  {
+    name: "HealthyCo GmbH",
+    city: "Hamburg",
+    note: "Active hiring and product launch",
+    x: 38,
+    y: 18,
+  },
+  {
+    name: "NormalSaaS GmbH",
+    city: "Berlin",
+    note: "Generic tech pressure",
+    x: 62,
+    y: 28,
+  },
+  {
+    name: "WatchlistTech GmbH",
+    city: "Munich",
+    note: "Hiring slowdown and Kununu uncertainty",
+    x: 70,
+    y: 70,
+  },
+  {
+    name: "RecentLayoff GmbH",
+    city: "Cologne",
+    note: "Employee signal cluster",
+    x: 42,
+    y: 56,
+  },
+  {
+    name: "StormAG",
+    city: "Stuttgart",
+    note: "Public restructuring evidence",
+    x: 57,
+    y: 76,
+  },
+];
+
+type Screen = "landing" | "report" | "map";
 
 type RiskOutput = {
   companyName: string;
@@ -75,36 +115,27 @@ type RiskOutput = {
   };
 };
 
-export default function RiskDashboard() {
-  const toolInfo = useToolInfo<"analyzeCompanyLayoffRisk">();
-  const { callTool, data, isPending: isSearching } = useCallTool("analyzeCompanyLayoffRisk");
-  const [companyName, setCompanyName] = useState(toolInfo.input?.companyName ?? "");
-
-  const metadataResult =
-    toolInfo.isSuccess && "result" in toolInfo.responseMetadata
-      ? (toolInfo.responseMetadata.result as RiskOutput)
-      : undefined;
-  const output = (data?.structuredContent ?? (toolInfo.isSuccess ? toolInfo.output : undefined) ?? metadataResult) as
-    | RiskOutput
-    | undefined;
-
-  function submitSearch(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const trimmedName = companyName.trim();
-    if (!trimmedName) return;
-    callTool({
-      companyName: trimmedName,
-    });
-  }
-
-  const searchBar = (
-    <form className="search-bar" onSubmit={submitSearch}>
+function SearchForm({
+  companyName,
+  isSearching,
+  label = "Company",
+  onCompanyChange,
+  onSubmit,
+}: {
+  companyName: string;
+  isSearching: boolean;
+  label?: string;
+  onCompanyChange: (value: string) => void;
+  onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
+}) {
+  return (
+    <form className="search-bar" onSubmit={onSubmit}>
       <label>
-        <span>Company</span>
+        <span>{label}</span>
         <input
           value={companyName}
-          onChange={(event) => setCompanyName(event.target.value)}
-          placeholder="Try HealthyCo GmbH, NormalSaaS GmbH, RecentLayoff GmbH"
+          onChange={(event) => onCompanyChange(event.target.value)}
+          placeholder="Try HealthyCo GmbH, RecentLayoff GmbH, or StormAG"
         />
       </label>
       <button type="submit" disabled={isSearching || !companyName.trim()}>
@@ -112,26 +143,79 @@ export default function RiskDashboard() {
       </button>
     </form>
   );
+}
 
-  if (!output) {
-    return (
-      <main className="risk-shell">
-        {searchBar}
-        <section className="loading-panel">
-          <span className="loading-dot" />
-          <div>
-            <p className="eyebrow">Corporate Weather</p>
-            <h1>{isSearching ? "Analyzing company..." : "Search a company"}</h1>
-            <p className="summary">
-              If the host does not pass tool output into this view, use the search above to
-              load the dashboard directly.
-            </p>
-          </div>
-        </section>
-      </main>
-    );
-  }
+function LandingScreen({
+  companyName,
+  isSearching,
+  onCompanyChange,
+  onSubmit,
+  onOpenMap,
+}: {
+  companyName: string;
+  isSearching: boolean;
+  onCompanyChange: (value: string) => void;
+  onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
+  onOpenMap: () => void;
+}) {
+  return (
+    <main className="risk-shell">
+      <section className="landing-hero">
+        <p className="eyebrow">Corporate Weather</p>
+        <h1>DACH workplace weather from public signals</h1>
+        <p className="summary">
+          Search a company to see visible risk signals, employee clusters, source coverage,
+          and calm counter-signals.
+        </p>
+        <SearchForm
+          companyName={companyName}
+          isSearching={isSearching}
+          onCompanyChange={onCompanyChange}
+          onSubmit={onSubmit}
+        />
+        <button className="secondary-action" type="button" onClick={onOpenMap}>
+          Open DACH Weather Map
+        </button>
+      </section>
 
+      <section className="landing-grid">
+        <article>
+          <span>01</span>
+          <h2>Search</h2>
+          <p>Start with a company name and run the public-signal scan.</p>
+        </article>
+        <article>
+          <span>02</span>
+          <h2>Read the Weather</h2>
+          <p>Review risk signals, calm signals, missing evidence, and source checks.</p>
+        </article>
+        <article>
+          <span>03</span>
+          <h2>Scan the Map</h2>
+          <p>Compare calibrated DACH examples and open a report from the map.</p>
+        </article>
+      </section>
+    </main>
+  );
+}
+
+function ReportScreen({
+  output,
+  companyName,
+  isSearching,
+  onCompanyChange,
+  onSubmit,
+  onBack,
+  onOpenMap,
+}: {
+  output: RiskOutput;
+  companyName: string;
+  isSearching: boolean;
+  onCompanyChange: (value: string) => void;
+  onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
+  onBack: () => void;
+  onOpenMap: () => void;
+}) {
   const circumference = 2 * Math.PI * 48;
   const offset = circumference - (output.riskScore / 100) * circumference;
   const linkedInSourceCheck = output.sourceChecks.find((check) =>
@@ -140,7 +224,21 @@ export default function RiskDashboard() {
 
   return (
     <main className="risk-shell">
-      {searchBar}
+      <nav className="screen-nav">
+        <button type="button" onClick={onBack}>
+          Search
+        </button>
+        <button type="button" onClick={onOpenMap}>
+          DACH Weather Map
+        </button>
+      </nav>
+
+      <SearchForm
+        companyName={companyName}
+        isSearching={isSearching}
+        onCompanyChange={onCompanyChange}
+        onSubmit={onSubmit}
+      />
 
       <section className={`hero ${levelClass[output.riskLevel]}`}>
         <div className="hero-copy">
@@ -391,9 +489,138 @@ export default function RiskDashboard() {
         </div>
       </section>
 
-      <footer className="risk-footer">
-        Signal analysis only. Not a prediction or legal advice.
-      </footer>
+      <footer className="risk-footer">Signal analysis only. Not a prediction or legal advice.</footer>
     </main>
+  );
+}
+
+function MapScreen({
+  activeCompany,
+  onBack,
+  onOpenCompany,
+}: {
+  activeCompany?: RiskOutput;
+  onBack: () => void;
+  onOpenCompany: (companyName: string) => void;
+}) {
+  return (
+    <main className="risk-shell">
+      <nav className="screen-nav">
+        <button type="button" onClick={onBack}>
+          Back
+        </button>
+      </nav>
+
+      <section className="map-hero">
+        <div>
+          <p className="eyebrow">DACH Weather Map</p>
+          <h1>Public signal landscape</h1>
+          <p className="summary">
+            Open a calibrated company report from the map. These examples reuse the same
+            scoring model as search.
+          </p>
+        </div>
+        {activeCompany ? (
+          <div className={`map-current ${levelClass[activeCompany.riskLevel]}`}>
+            <span>{activeCompany.companyName}</span>
+            <strong>{activeCompany.riskScore}/100</strong>
+            <p>{activeCompany.riskLevel}</p>
+          </div>
+        ) : null}
+      </section>
+
+      <section className="map-board" aria-label="DACH company weather map">
+        <div className="map-outline" />
+        {mapCompanies.map((company) => (
+          <button
+            className="map-marker"
+            key={company.name}
+            style={{ left: `${company.x}%`, top: `${company.y}%` }}
+            type="button"
+            onClick={() => onOpenCompany(company.name)}
+          >
+            <span>{company.name}</span>
+          </button>
+        ))}
+      </section>
+
+      <section className="map-list">
+        {mapCompanies.map((company) => (
+          <button type="button" key={company.name} onClick={() => onOpenCompany(company.name)}>
+            <span>{company.city}</span>
+            <strong>{company.name}</strong>
+            <p>{company.note}</p>
+          </button>
+        ))}
+      </section>
+    </main>
+  );
+}
+
+export default function RiskDashboard() {
+  const toolInfo = useToolInfo<"analyzeCompanyLayoffRisk">();
+  const { callTool, data, isPending: isSearching } = useCallTool("analyzeCompanyLayoffRisk");
+  const [companyName, setCompanyName] = useState(toolInfo.input?.companyName ?? "");
+  const [screen, setScreen] = useState<Screen>("landing");
+
+  const metadataResult =
+    toolInfo.isSuccess && "result" in toolInfo.responseMetadata
+      ? (toolInfo.responseMetadata.result as RiskOutput)
+      : undefined;
+  const output = (data?.structuredContent ?? (toolInfo.isSuccess ? toolInfo.output : undefined) ?? metadataResult) as
+    | RiskOutput
+    | undefined;
+
+  useEffect(() => {
+    if (output) {
+      setScreen("report");
+      setCompanyName(output.companyName);
+    }
+  }, [output]);
+
+  function runCompanySearch(name: string) {
+    const trimmedName = name.trim();
+    if (!trimmedName) return;
+    setCompanyName(trimmedName);
+    callTool({ companyName: trimmedName });
+  }
+
+  function submitSearch(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    runCompanySearch(companyName);
+  }
+
+  if (screen === "map") {
+    return (
+      <MapScreen
+        activeCompany={output}
+        onBack={() => setScreen(output ? "report" : "landing")}
+        onOpenCompany={runCompanySearch}
+      />
+    );
+  }
+
+  if (screen === "report" && output) {
+    return (
+      <ReportScreen
+        output={output}
+        companyName={companyName}
+        isSearching={isSearching}
+        onCompanyChange={setCompanyName}
+        onSubmit={submitSearch}
+        onBack={() => setScreen("landing")}
+        onOpenMap={() => setScreen("map")}
+      />
+    );
+  }
+
+  return (
+    <LandingScreen
+      companyName={companyName}
+      isSearching={isSearching}
+      onCompanyChange={setCompanyName}
+      onSubmit={submitSearch}
+      onOpenMap={() => setScreen("map")}
+    />
   );
 }
