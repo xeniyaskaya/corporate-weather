@@ -405,17 +405,17 @@ export default function RiskDashboard() {
     toolInfo.isSuccess && "result" in toolInfo.responseMetadata
       ? (toolInfo.responseMetadata.result as RiskOutput)
       : undefined;
-  const hostedOutput = (toolInfo.isSuccess ? toolInfo.output : undefined) ?? metadataResult;
-  const dataOutput = data?.structuredContent as RiskOutput | undefined;
-  const output = searchedOutput ?? dataOutput ?? (screen === "report" ? (hostedOutput as RiskOutput | undefined) : undefined);
+  const dataMetaResult =
+    data?.meta && "result" in data.meta ? (data.meta.result as RiskOutput) : undefined;
+  const output = searchedOutput ?? dataMetaResult ?? (screen === "report" ? metadataResult : undefined);
 
   useEffect(() => {
-    if (dataOutput) {
-      setSearchedOutput(dataOutput);
+    if (dataMetaResult) {
+      setSearchedOutput(dataMetaResult);
       setScreen("report");
-      setCompanyName(dataOutput.companyName);
+      setCompanyName(dataMetaResult.companyName);
     }
-  }, [dataOutput]);
+  }, [dataMetaResult]);
 
   function runCompanySearch(name: string) {
     const trimmedName = name.trim();

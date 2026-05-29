@@ -1,7 +1,12 @@
 import { McpServer } from "skybridge/server";
 import { z } from "zod";
 
-import { analyzeCompany, riskOutputSchema } from "./risk-model.js";
+import { analyzeCompany } from "./risk-model.js";
+
+const dashboardStatusSchema = {
+  companyName: z.string(),
+  dashboardStatus: z.literal("ready"),
+};
 
 const server = new McpServer(
   {
@@ -18,7 +23,7 @@ const server = new McpServer(
     inputSchema: {
       companyName: z.string().min(1).describe("Company name to analyze"),
     },
-    outputSchema: riskOutputSchema,
+    outputSchema: dashboardStatusSchema,
     annotations: {
       readOnlyHint: true,
       openWorldHint: false,
@@ -39,14 +44,17 @@ const server = new McpServer(
     const structuredContent = await analyzeCompany(companyName.trim());
 
     return {
-      structuredContent,
+      structuredContent: {
+        companyName: structuredContent.companyName,
+        dashboardStatus: "ready" as const,
+      },
       _meta: {
         result: structuredContent,
       },
       content: [
         {
           type: "text",
-          text: `${structuredContent.companyName}: ${structuredContent.riskLevel} (${structuredContent.riskScore}/100), confidence ${structuredContent.confidence}. Signal analysis only, not a prediction or legal advice.`,
+          text: `Corporate Weather dashboard opened for ${structuredContent.companyName}.`,
         },
       ],
     };
