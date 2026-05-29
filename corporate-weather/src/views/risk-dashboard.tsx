@@ -201,18 +201,10 @@ function LandingScreen({
 
 function ReportScreen({
   output,
-  companyName,
-  isSearching,
-  onCompanyChange,
-  onSubmit,
   onBack,
   onOpenMap,
 }: {
   output: RiskOutput;
-  companyName: string;
-  isSearching: boolean;
-  onCompanyChange: (value: string) => void;
-  onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
   onBack: () => void;
   onOpenMap: () => void;
 }) {
@@ -221,6 +213,8 @@ function ReportScreen({
   const linkedInSourceCheck = output.sourceChecks.find((check) =>
     check.source.toLowerCase().includes("linkedin"),
   );
+  const topSignals = output.signals.slice(0, 3);
+  const topCalmSignals = output.calmSignals.slice(0, 2);
 
   return (
     <main className="risk-shell">
@@ -232,13 +226,6 @@ function ReportScreen({
           DACH Weather Map
         </button>
       </nav>
-
-      <SearchForm
-        companyName={companyName}
-        isSearching={isSearching}
-        onCompanyChange={onCompanyChange}
-        onSubmit={onSubmit}
-      />
 
       <section className={`hero ${levelClass[output.riskLevel]}`}>
         <div className="hero-copy">
@@ -266,7 +253,7 @@ function ReportScreen({
         </div>
       </section>
 
-      <section className="metric-strip" aria-label="Risk summary">
+      <section className="metric-strip report-metrics" aria-label="Risk summary">
         <div>
           <span>Risk</span>
           <strong>{output.riskScore}/100</strong>
@@ -281,212 +268,62 @@ function ReportScreen({
         </div>
       </section>
 
-      <section className="section-block explanation-block">
-        <div className="section-heading">
-          <p className="eyebrow">Score</p>
-          <h2>Why This Score</h2>
-        </div>
-        <p>{output.summary}</p>
-        <div className="score-ledger">
-          <div>
-            <span>Risk signals before calm modifiers</span>
-            <strong>{output.scoreDetails.rawRiskScore}</strong>
-          </div>
-          <div>
-            <span>Calm modifiers</span>
-            <strong>{output.scoreDetails.calmModifierTotal}</strong>
-          </div>
-          <div>
-            <span>Final guarded score</span>
-            <strong>{output.scoreDetails.guardrailAdjustedScore}</strong>
-          </div>
-        </div>
-      </section>
-
-      <section className="section-block">
-        <div className="section-heading">
-          <p className="eyebrow">Risk</p>
-          <h2>Risk Signals</h2>
-        </div>
-        <div className="signal-list">
-          {output.signals.map((signal, index) => (
-            <article className="signal-item" key={`${signal.category}-${signal.title}-${index}`}>
-              <div className="signal-topline">
-                <span className={`severity severity-${signal.severity}`}>
-                  {scaleLabel[signal.severity]}
-                </span>
+      <section className="report-grid">
+        <article className="report-panel wide">
+          <p className="eyebrow">Reading</p>
+          <h2>What Changed the Weather</h2>
+          <div className="mini-signal-list">
+            {topSignals.map((signal, index) => (
+              <div key={`${signal.title}-${index}`}>
                 <span>{signal.category}</span>
-              </div>
-              <h3>{signal.title}</h3>
-              <dl className="signal-metrics">
-                <div>
-                  <dt>Severity</dt>
-                  <dd>{scaleLabel[signal.severity]}</dd>
-                </div>
-                <div>
-                  <dt>Confidence</dt>
-                  <dd>{scaleLabel[signal.confidence]}</dd>
-                </div>
-                <div>
-                  <dt>Recency</dt>
-                  <dd>{scaleLabel[signal.recency]}</dd>
-                </div>
-                <div>
-                  <dt>Reliability</dt>
-                  <dd>{scaleLabel[signal.sourceReliability]}</dd>
-                </div>
-              </dl>
-              <p className="evidence">{signal.evidence}</p>
-              <div className="why-panel">
-                <span>Why it matters</span>
+                <strong>{signal.title}</strong>
                 <p>{signal.explanation}</p>
               </div>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="two-column">
-        <div className="section-block compact">
-          <div className="section-heading">
-            <p className="eyebrow">Employees</p>
-            <h2>Employee Signal Clusters</h2>
+            ))}
           </div>
-          {output.employeeLayoffClusters.length === 0 ? (
+        </article>
+
+        <article className="report-panel">
+          <p className="eyebrow">Employees</p>
+          <h2>Signal Cluster</h2>
+          {output.employeeLayoffClusters.length > 0 ? (
             <p>
-              {linkedInSourceCheck?.summary ??
-                "LinkedIn employee clusters were not verified by the current source access. Treat this as missing evidence, not proof that no employee posts exist."}
+              {output.employeeLayoffClusters[0].postCount} public employee snippets in{" "}
+              {output.employeeLayoffClusters[0].timeWindow}.
             </p>
           ) : (
-            <div className="cluster-list">
-              {output.employeeLayoffClusters.map((cluster, index) => (
-                <article className="cluster-item" key={`${cluster.title}-${index}`}>
-                  <div className="calm-topline">
-                    <span>{cluster.postCount} posts</span>
-                    <strong>{cluster.timeWindow}</strong>
-                  </div>
-                  <h3>{cluster.title}</h3>
-                  <dl className="signal-metrics">
-                    <div>
-                      <dt>Severity</dt>
-                      <dd>{scaleLabel[cluster.severity]}</dd>
-                    </div>
-                    <div>
-                      <dt>Confidence</dt>
-                      <dd>{scaleLabel[cluster.confidence]}</dd>
-                    </div>
-                  </dl>
-                  <p>{cluster.evidence}</p>
-                  <p>{cluster.explanation}</p>
-                </article>
-              ))}
-            </div>
+            <p>
+              {linkedInSourceCheck?.summary ??
+                "LinkedIn public snippets were not verified by the current source access."}
+            </p>
           )}
-          {linkedInSourceCheck ? (
-            <div className="source-check">
-              <span>{linkedInSourceCheck.status.replace("_", " ")}</span>
-              <strong>{linkedInSourceCheck.provider ?? "no provider"}</strong>
-              <p>
-                {linkedInSourceCheck.queryCount} queries, {linkedInSourceCheck.resultCount} matching results
-              </p>
-            </div>
-          ) : null}
-        </div>
-      </section>
+        </article>
 
-      <section className="section-block">
-        <div className="section-heading">
+        <article className="report-panel">
           <p className="eyebrow">Calm</p>
-          <h2>Positive / Calm Signals</h2>
-        </div>
-        <div className="calm-list">
-          {output.calmSignals.length === 0 ? (
-            <article className="calm-item">
-              <h3>No calm counter-signals found</h3>
-              <p>The score was not reduced by visible hiring, growth, or missing-evidence counter-signals.</p>
-            </article>
+          <h2>Counter-Signals</h2>
+          {topCalmSignals.length > 0 ? (
+            <ul>
+              {topCalmSignals.map((signal) => (
+                <li key={signal.title}>{signal.title}</li>
+              ))}
+            </ul>
           ) : (
-            output.calmSignals.map((signal, index) => (
-              <article className="calm-item" key={`${signal.title}-${index}`}>
-                <div className="calm-topline">
-                  <span>{signal.impact}</span>
-                  <strong>{signal.title}</strong>
-                </div>
-                <p>{signal.evidence}</p>
-                <p>{signal.explanation}</p>
-              </article>
-            ))
+            <p>No calm counter-signals reduced the score.</p>
           )}
-        </div>
-      </section>
+        </article>
 
-      <section className="two-column">
-        <div className="section-block compact">
-          <div className="section-heading">
-            <p className="eyebrow">Coverage</p>
-            <h2>Missing Evidence</h2>
-          </div>
-          <ul>
-            {output.missingEvidence.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-        </div>
+        <article className="report-panel">
+          <p className="eyebrow">Coverage</p>
+          <h2>Missing Evidence</h2>
+          <p>{output.missingEvidence[0] ?? "No major coverage gaps listed."}</p>
+        </article>
 
-        <div className="section-block compact">
-          <div className="section-heading">
-            <p className="eyebrow">Guardrail</p>
-            <h2>Why Not Higher?</h2>
-          </div>
-          <ul>
-            {output.scoreDetails.whyNotHigher.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-        </div>
-      </section>
-
-      <section className="section-block compact">
-        <div className="section-heading">
-          <p className="eyebrow">Balance</p>
-          <h2>Why Not Lower?</h2>
-        </div>
-        <ul>
-          {output.scoreDetails.whyNotLower.map((item) => (
-            <li key={item}>{item}</li>
-          ))}
-        </ul>
-      </section>
-
-      <section className="two-column">
-        <div className="section-block compact">
-          <div className="section-heading">
-            <p className="eyebrow">Next</p>
-            <h2>Watch Next</h2>
-          </div>
-          <ul>
-            {output.watchNext.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-        </div>
-
-        <div className="section-block compact">
-          <div className="section-heading">
-            <p className="eyebrow">Caps</p>
-            <h2>Category Contributions</h2>
-          </div>
-          <div className="category-list">
-            {output.scoreDetails.categoryContributions.map((item) => (
-              <div key={item.category}>
-                <span>{item.category}</span>
-                <strong>
-                  {item.contribution}/{item.cap}
-                </strong>
-              </div>
-            ))}
-          </div>
-        </div>
+        <article className="report-panel">
+          <p className="eyebrow">Next</p>
+          <h2>Watch Next</h2>
+          <p>{output.watchNext[0] ?? "Re-run the scan when new public evidence appears."}</p>
+        </article>
       </section>
 
       <footer className="risk-footer">Signal analysis only. Not a prediction or legal advice.</footer>
@@ -562,21 +399,23 @@ export default function RiskDashboard() {
   const { callTool, data, isPending: isSearching } = useCallTool("analyzeCompanyLayoffRisk");
   const [companyName, setCompanyName] = useState(toolInfo.input?.companyName ?? "");
   const [screen, setScreen] = useState<Screen>("landing");
+  const [searchedOutput, setSearchedOutput] = useState<RiskOutput | undefined>();
 
   const metadataResult =
     toolInfo.isSuccess && "result" in toolInfo.responseMetadata
       ? (toolInfo.responseMetadata.result as RiskOutput)
       : undefined;
-  const output = (data?.structuredContent ?? (toolInfo.isSuccess ? toolInfo.output : undefined) ?? metadataResult) as
-    | RiskOutput
-    | undefined;
+  const hostedOutput = (toolInfo.isSuccess ? toolInfo.output : undefined) ?? metadataResult;
+  const dataOutput = data?.structuredContent as RiskOutput | undefined;
+  const output = searchedOutput ?? dataOutput ?? (screen === "report" ? (hostedOutput as RiskOutput | undefined) : undefined);
 
   useEffect(() => {
-    if (output) {
+    if (dataOutput) {
+      setSearchedOutput(dataOutput);
       setScreen("report");
-      setCompanyName(output.companyName);
+      setCompanyName(dataOutput.companyName);
     }
-  }, [output]);
+  }, [dataOutput]);
 
   function runCompanySearch(name: string) {
     const trimmedName = name.trim();
@@ -604,10 +443,6 @@ export default function RiskDashboard() {
     return (
       <ReportScreen
         output={output}
-        companyName={companyName}
-        isSearching={isSearching}
-        onCompanyChange={setCompanyName}
-        onSubmit={submitSearch}
         onBack={() => setScreen("landing")}
         onOpenMap={() => setScreen("map")}
       />
