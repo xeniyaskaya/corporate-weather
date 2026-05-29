@@ -42,7 +42,7 @@ const mapCompanies = [
   {
     name: "RecentLayoff GmbH",
     city: "Cologne",
-    note: "Employee signal cluster",
+    note: "Recent public workforce signals",
     x: 42,
     y: 56,
   },
@@ -74,7 +74,7 @@ const weatherStates = [
   {
     name: "Storm Warning",
     score: "76-100",
-    detail: "Strong public evidence or employee clusters",
+    detail: "Strong public restructuring evidence",
   },
 ];
 
@@ -100,15 +100,6 @@ type RiskOutput = {
   calmSignals: Array<{
     title: string;
     impact: number;
-    evidence: string;
-    explanation: string;
-  }>;
-  employeeLayoffClusters: Array<{
-    title: string;
-    postCount: number;
-    timeWindow: string;
-    severity: keyof typeof scaleLabel;
-    confidence: keyof typeof scaleLabel;
     evidence: string;
     explanation: string;
   }>;
@@ -233,9 +224,6 @@ function ReportScreen({
 }) {
   const circumference = 2 * Math.PI * 48;
   const offset = circumference - (output.riskScore / 100) * circumference;
-  const linkedInSourceCheck = output.sourceChecks.find((check) =>
-    check.source.toLowerCase().includes("linkedin"),
-  );
   const topSignals = output.signals.slice(0, 3);
   const topCalmSignals = output.calmSignals.slice(0, 2);
 
@@ -285,10 +273,6 @@ function ReportScreen({
           <span>Confidence</span>
           <strong>{output.confidence}</strong>
         </div>
-        <div>
-          <span>Employee Clusters</span>
-          <strong>{output.employeeLayoffClusters.length}</strong>
-        </div>
       </section>
 
       <section className="report-grid">
@@ -304,22 +288,6 @@ function ReportScreen({
               </div>
             ))}
           </div>
-        </article>
-
-        <article className="report-panel">
-          <p className="eyebrow">Employees</p>
-          <h2>Signal Cluster</h2>
-          {output.employeeLayoffClusters.length > 0 ? (
-            <p>
-              {output.employeeLayoffClusters[0].postCount} public employee snippets in{" "}
-              {output.employeeLayoffClusters[0].timeWindow}.
-            </p>
-          ) : (
-            <p>
-              {linkedInSourceCheck?.summary ??
-                "LinkedIn public snippets were not verified by the current source access."}
-            </p>
-          )}
         </article>
 
         <article className="report-panel">

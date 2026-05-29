@@ -3,7 +3,7 @@
 ## Value Proposition
 Corporate Weather helps knowledge workers, employee representatives, and internal strategists quickly assess layoff and restructuring risk for a named company.
 
-The pain today is fragmented public DACH evidence: business press, careers pages, Kununu, LinkedIn employee posts, and company-owned updates are scattered across sources and often hidden behind corporate euphemisms.
+The pain today is fragmented public DACH evidence: business press, careers pages, Kununu, and company-owned updates are scattered across sources and often hidden behind corporate euphemisms.
 
 **Core action**: Analyze a company for layoff risk and present a concise, evidence-oriented dashboard.
 
@@ -27,8 +27,8 @@ The pain today is fragmented public DACH evidence: business press, careers pages
 - **Tool**: `analyzeCompanyLayoffRisk`
 - **View**: `RiskDashboard`
 - **Authentication**: None for the local prototype
-- **Data collection**: Simulated DACH source collector shaped around DACH business press, careers pages, Kununu, LinkedIn employee clusters, and company-owned sources
-- **Differentiation**: Public evidence weighting for DACH business press, employee snippets, hiring signals, and company-owned restructuring updates
+- **Data collection**: Simulated DACH source collector shaped around DACH business press, careers pages, Kununu, and company-owned sources
+- **Differentiation**: Public evidence weighting for DACH business press, hiring signals, Kununu patterns, and company-owned restructuring updates
 
 ## UX Flows
 Analyze company layoff risk:
@@ -40,17 +40,16 @@ Analyze company layoff risk:
 ## Tools and Views
 **Tool: analyzeCompanyLayoffRisk**
 - **Input**: `{ companyName: string }`
-- **Output**: `{ companyName, riskScore, riskLevel, confidence, summary, signals, calmSignals, employeeLayoffClusters, sourceChecks, missingEvidence, watchNext, scoreDetails }`
+- **Output**: `{ companyName, riskScore, riskLevel, confidence, summary, signals, calmSignals, sourceChecks, missingEvidence, watchNext, scoreDetails }`
 - **Signal shape**: `{ title, category, severity, confidence, recency, sourceReliability, companySpecific, evidence, explanation }`
 - **Signal score**: `severity * confidence * recency`
 - **Total score**: Uses an uncertainty baseline plus category-capped contributions, then applies capped calm modifiers and guardrails. Generic weak signals cannot push a company above high-risk levels.
-- **Category caps**: `Market Context 8`, `Leadership Language 12`, `Kununu 15`, `Careers 20`, `LinkedIn Employee Cluster 30`, `DACH Press 35`, `Company-Owned 35`.
+- **Category caps**: `Market Context 8`, `Leadership Language 12`, `Kununu 15`, `Careers 20`, `DACH Press 35`, `Company-Owned 35`.
 - **Risk levels**: `0-25 Clear`, `26-50 Watchlist`, `51-75 Cloudy`, `76-100 Storm Warning`
-- **Guardrails**: Generic market pressure alone cannot exceed 40, vague efficiency language alone cannot exceed 45, scores cannot exceed 55 without company-specific evidence, 65 without recent company-specific evidence, or 75 without reputable public confirmation or a strong employee cluster.
-- **Behavior**: Simulates visible public DACH signal analysis across market context, DACH press, hiring, Kununu, LinkedIn employee clusters, and company-owned sources. It does not predict layoffs or provide legal advice.
-- **Optional live search**: If `SEARCH_API_PROVIDER` plus a provider key is configured, the model checks public LinkedIn snippets through Brave Search API, SerpApi, or Tavily. Without a key, LinkedIn is marked `not_configured` and treated as missing evidence.
+- **Guardrails**: Generic market pressure alone cannot exceed 40, vague efficiency language alone cannot exceed 45, scores cannot exceed 55 without company-specific evidence, 65 without recent company-specific evidence, or 75 without reputable public confirmation.
+- **Behavior**: Simulates visible public DACH signal analysis across market context, DACH press, hiring, Kununu, and company-owned sources. It does not predict layoffs or provide legal advice.
 
 **View: RiskDashboard**
 - **Input**: Same as `analyzeCompanyLayoffRisk`
 - **Output**: Same as `analyzeCompanyLayoffRisk`
-- **Behavior**: Presents score, weather label, confidence, risk signals, calm signals, employee signal clusters, source checks, missing evidence, why-not-higher and why-not-lower explanations, category contributions, and watch-next items.
+- **Behavior**: Presents score, weather label, confidence, risk signals, calm signals, source checks, missing evidence, why-not-higher and why-not-lower explanations, category contributions, and watch-next items.
