@@ -1,6 +1,8 @@
 import "../index.css";
 import { useEffect, useState } from "react";
+import { useOpenExternal, useSetOpenInAppUrl } from "skybridge/web";
 import { useCallTool, useToolInfo } from "../helpers.js";
+import { analyzeCompany } from "../risk-model.js";
 
 const levelClass = {
   Clear: "level-clear",
@@ -156,6 +158,10 @@ const workplaceTerms = [
 ];
 
 type Screen = "landing" | "report" | "map";
+type RouteState = {
+  screen: Screen;
+  companyName?: string;
+};
 
 type RiskOutput = {
   companyName: string;
@@ -205,6 +211,69 @@ type RiskOutput = {
     }>;
   };
 };
+
+function isEmbeddedHost() {
+  if (typeof window === "undefined") return false;
+
+  try {
+    return window.self !== window.top || "openai" in window;
+  } catch {
+    return true;
+  }
+}
+
+function hasSkybridgeHost() {
+  return typeof window !== "undefined" && "skybridge" in window;
+}
+
+function routePath(screen: Screen, companyName?: string) {
+  if (screen === "map") return "/radar";
+  if (screen === "report" && companyName?.trim()) {
+    return `/company/${encodeURIComponent(companyName.trim())}`;
+  }
+  return "/";
+}
+
+function routeUrl(screen: Screen, companyName?: string) {
+  if (typeof window === "undefined") return routePath(screen, companyName);
+
+  const path = routePath(screen, companyName);
+  const basePath =
+    window.location.pathname.startsWith("/try") || window.location.hostname.endsWith("alpic.live")
+      ? "/try"
+      : "";
+  const hashPath = path === "/" ? "" : `#${path}`;
+
+  return `${window.location.origin}${basePath}${hashPath}`;
+}
+
+function readInitialRoute(): RouteState {
+  if (typeof window === "undefined") return { screen: "landing" };
+
+  const routeSource = window.location.hash.startsWith("#/")
+    ? window.location.hash.slice(1)
+    : window.location.pathname;
+  const companyMatch = routeSource.match(/^\/company\/([^/]+)\/?$/);
+  if (companyMatch?.[1]) {
+    return {
+      screen: "report",
+      companyName: decodeURIComponent(companyMatch[1]).replaceAll("+", " "),
+    };
+  }
+
+  if (routeSource === "/radar") return { screen: "map" };
+
+  return { screen: "landing" };
+}
+
+function updateStandalonePath(screen: Screen, companyName?: string) {
+  if (typeof window === "undefined" || isEmbeddedHost()) return;
+
+  const nextUrl = new URL(routeUrl(screen, companyName));
+  if (window.location.pathname !== nextUrl.pathname || window.location.hash !== nextUrl.hash) {
+    window.history.pushState(null, "", `${nextUrl.pathname}${nextUrl.hash}`);
+  }
+}
 
 function SearchForm({
   companyName,
@@ -411,10 +480,14 @@ function ReportScreen({
   output,
   onBack,
   onOpenMap,
+  onOpenFullReport,
+  showFullReportLink,
 }: {
   output: RiskOutput;
   onBack: () => void;
   onOpenMap: () => void;
+  onOpenFullReport: () => void;
+  showFullReportLink: boolean;
 }) {
   const circumference = 2 * Math.PI * 48;
   const offset = circumference - (output.riskScore / 100) * circumference;
@@ -431,6 +504,11 @@ function ReportScreen({
         <button type="button" onClick={onOpenMap}>
           Open DACH Market Radar
         </button>
+        {showFullReportLink ? (
+          <button className="external-link" type="button" onClick={onOpenFullReport}>
+            Open full report
+          </button>
+        ) : null}
       </nav>
 
       <section className={`hero report-hero ${levelClass[output.riskLevel]}`}>
@@ -591,10 +669,14 @@ function MapScreen({
   activeCompany,
   onBack,
   onOpenCompany,
+  onOpenRadarPage,
+  showFullReportLink,
 }: {
   activeCompany?: RiskOutput;
   onBack: () => void;
   onOpenCompany: (companyName: string) => void;
+  onOpenRadarPage: () => void;
+  showFullReportLink: boolean;
 }) {
   const [activeFilter, setActiveFilter] = useState<"All" | RiskOutput["riskLevel"]>("All");
   const filteredCompanies =
@@ -608,6 +690,11 @@ function MapScreen({
         <button type="button" onClick={onBack}>
           Back
         </button>
+        {showFullReportLink ? (
+          <button className="external-link" type="button" onClick={onOpenRadarPage}>
+            Open radar page
+          </button>
+        ) : null}
       </nav>
 
       <section className="map-hero radar-hero">
@@ -687,11 +774,19 @@ function MapScreen({
   );
 }
 
-export default function RiskDashboard() {
+function HostedRiskDashboard() {
   const toolInfo = useToolInfo<"analyzeCompanyLayoffRisk">();
   const { callTool, data, isPending: isSearching } = useCallTool("analyzeCompanyLayoffRisk");
-  const [companyName, setCompanyName] = useState(toolInfo.input?.companyName ?? "");
-  const [screen, setScreen] = useState<Screen>("landing");
+  const openExternal = useOpenExternal();
+  const setOpenInAppUrl = useSetOpenInAppUrl();
+  const [initialRoute] = useState(readInitialRoute);
+  const [embeddedHost] = useState(isEmbeddedHost);
+  const [companyName, setCompanyName] = useState(
+    initialRoute.companyName ?? toolInfo.input?.companyName ?? "",
+  );
+  const [screen, setScreen] = useState<Screen>(
+    initialRoute.screen !== "landing" || !toolInfo.input?.companyName ? initialRoute.screen : "report",
+  );
   const [searchedOutput, setSearchedOutput] = useState<RiskOutput | undefined>();
 
   const metadataResult =
@@ -701,19 +796,61 @@ export default function RiskDashboard() {
   const dataMetaResult =
     data?.meta && "result" in data.meta ? (data.meta.result as RiskOutput) : undefined;
   const output = searchedOutput ?? dataMetaResult ?? (screen === "report" ? metadataResult : undefined);
+  const openInAppTarget = routeUrl(
+    screen,
+    screen === "report" ? output?.companyName ?? companyName : undefined,
+  );
 
   useEffect(() => {
     if (dataMetaResult) {
       setSearchedOutput(dataMetaResult);
       setScreen("report");
       setCompanyName(dataMetaResult.companyName);
+      updateStandalonePath("report", dataMetaResult.companyName);
     }
   }, [dataMetaResult]);
+
+  useEffect(() => {
+    if (metadataResult && screen === "report") {
+      setCompanyName(metadataResult.companyName);
+    }
+  }, [metadataResult, screen]);
+
+  useEffect(() => {
+    if (initialRoute.screen === "report" && initialRoute.companyName && !metadataResult) {
+      callTool({ companyName: initialRoute.companyName });
+    }
+  }, []);
+
+  // Standalone mode reads clean paths when the host supports them and falls back to
+  // `/try#/...` links on Alpic; embedded Skybridge/ChatGPT mode keeps navigation internal
+  // and exposes the matching standalone route through the host's "open in app" affordance.
+  useEffect(() => {
+    setOpenInAppUrl(openInAppTarget).catch(() => undefined);
+  }, [openInAppTarget, setOpenInAppUrl]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || embeddedHost) return undefined;
+
+    function handlePopState() {
+      const nextRoute = readInitialRoute();
+      setScreen(nextRoute.screen);
+      if (nextRoute.companyName) {
+        setCompanyName(nextRoute.companyName);
+        callTool({ companyName: nextRoute.companyName });
+      }
+    }
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [callTool, embeddedHost]);
 
   function runCompanySearch(name: string) {
     const trimmedName = name.trim();
     if (!trimmedName) return;
     setCompanyName(trimmedName);
+    setScreen("report");
+    updateStandalonePath("report", trimmedName);
     callTool({ companyName: trimmedName });
   }
 
@@ -722,12 +859,33 @@ export default function RiskDashboard() {
     runCompanySearch(companyName);
   }
 
+  function goToLanding() {
+    setScreen("landing");
+    updateStandalonePath("landing");
+  }
+
+  function goToMap() {
+    setScreen("map");
+    updateStandalonePath("map");
+  }
+
+  function goToReport(reportCompanyName: string) {
+    setScreen("report");
+    updateStandalonePath("report", reportCompanyName);
+  }
+
+  function openFullPage(targetScreen: Screen, targetCompany?: string) {
+    openExternal(routeUrl(targetScreen, targetCompany), { redirectUrl: false });
+  }
+
   if (screen === "map") {
     return (
       <MapScreen
         activeCompany={output}
-        onBack={() => setScreen(output ? "report" : "landing")}
+        onBack={() => (output ? goToReport(output.companyName) : goToLanding())}
         onOpenCompany={runCompanySearch}
+        onOpenRadarPage={() => openFullPage("map")}
+        showFullReportLink={embeddedHost}
       />
     );
   }
@@ -736,9 +894,25 @@ export default function RiskDashboard() {
     return (
       <ReportScreen
         output={output}
-        onBack={() => setScreen("landing")}
-        onOpenMap={() => setScreen("map")}
+        onBack={goToLanding}
+        onOpenMap={goToMap}
+        onOpenFullReport={() => openFullPage("report", output.companyName)}
+        showFullReportLink={embeddedHost}
       />
+    );
+  }
+
+  if (screen === "report") {
+    return (
+      <main className="risk-shell">
+        <section className="loading-panel">
+          <div className="loading-dot" />
+          <div>
+            <p className="eyebrow">Corporate Weather</p>
+            <h1>{isSearching ? "Scanning" : "Preparing"} {companyName || "company"}...</h1>
+          </div>
+        </section>
+      </main>
     );
   }
 
@@ -748,7 +922,127 @@ export default function RiskDashboard() {
       isSearching={isSearching}
       onCompanyChange={setCompanyName}
       onSubmit={submitSearch}
-      onOpenMap={() => setScreen("map")}
+      onOpenMap={goToMap}
     />
   );
+}
+
+function StandaloneRiskDashboard() {
+  const [initialRoute] = useState(readInitialRoute);
+  const [companyName, setCompanyName] = useState(initialRoute.companyName ?? "");
+  const [screen, setScreen] = useState<Screen>(initialRoute.screen);
+  const [output, setOutput] = useState<RiskOutput | undefined>();
+  const [isSearching, setIsSearching] = useState(false);
+
+  async function runCompanySearch(name: string) {
+    const trimmedName = name.trim();
+    if (!trimmedName) return;
+
+    setCompanyName(trimmedName);
+    setScreen("report");
+    setIsSearching(true);
+    updateStandalonePath("report", trimmedName);
+
+    try {
+      const result = await analyzeCompany(trimmedName);
+      setOutput(result);
+      setCompanyName(result.companyName);
+      updateStandalonePath("report", result.companyName);
+    } finally {
+      setIsSearching(false);
+    }
+  }
+
+  useEffect(() => {
+    if (initialRoute.screen === "report" && initialRoute.companyName) {
+      void runCompanySearch(initialRoute.companyName);
+    }
+  }, []);
+
+  // Standalone mode has no Skybridge host, so it uses local route state plus the
+  // same deterministic analyzer instead of host tool calls.
+  useEffect(() => {
+    function handlePopState() {
+      const nextRoute = readInitialRoute();
+      setScreen(nextRoute.screen);
+      if (nextRoute.companyName) {
+        void runCompanySearch(nextRoute.companyName);
+      }
+    }
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  function submitSearch(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    void runCompanySearch(companyName);
+  }
+
+  function goToLanding() {
+    setScreen("landing");
+    updateStandalonePath("landing");
+  }
+
+  function goToMap() {
+    setScreen("map");
+    updateStandalonePath("map");
+  }
+
+  function goToReport(reportCompanyName: string) {
+    setScreen("report");
+    updateStandalonePath("report", reportCompanyName);
+  }
+
+  if (screen === "map") {
+    return (
+      <MapScreen
+        activeCompany={output}
+        onBack={() => (output ? goToReport(output.companyName) : goToLanding())}
+        onOpenCompany={runCompanySearch}
+        onOpenRadarPage={goToMap}
+        showFullReportLink={false}
+      />
+    );
+  }
+
+  if (screen === "report" && output) {
+    return (
+      <ReportScreen
+        output={output}
+        onBack={goToLanding}
+        onOpenMap={goToMap}
+        onOpenFullReport={() => undefined}
+        showFullReportLink={false}
+      />
+    );
+  }
+
+  if (screen === "report") {
+    return (
+      <main className="risk-shell">
+        <section className="loading-panel">
+          <div className="loading-dot" />
+          <div>
+            <p className="eyebrow">Corporate Weather</p>
+            <h1>{isSearching ? "Scanning" : "Preparing"} {companyName || "company"}...</h1>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
+  return (
+    <LandingScreen
+      companyName={companyName}
+      isSearching={isSearching}
+      onCompanyChange={setCompanyName}
+      onSubmit={submitSearch}
+      onOpenMap={goToMap}
+    />
+  );
+}
+
+export default function RiskDashboard() {
+  return hasSkybridgeHost() ? <HostedRiskDashboard /> : <StandaloneRiskDashboard />;
 }

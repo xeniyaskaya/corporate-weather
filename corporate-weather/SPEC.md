@@ -21,6 +21,8 @@ The pain today is fragmented public DACH evidence: business press, careers pages
 
 **End state**: The user receives a structured risk readout with signals, missing evidence, and items to watch next.
 
+**Standalone web behavior**: The same React view also works as a standalone website. `/` opens the landing search screen, `/company/:companyName` opens a company report and runs the existing analysis, and `/radar` opens the DACH weather radar when the host serves clean paths. On the current Alpic playground host, deep links use the equivalent `/try#/company/:companyName` and `/try#/radar` hash routes. When embedded in ChatGPT/Skybridge, navigation stays inside the widget and the host receives an "open in app" URL for the equivalent standalone page.
+
 ## Product Context
 - **Product**: Skybridge GPT App
 - **App name**: Corporate Weather
@@ -52,4 +54,4 @@ Analyze company layoff risk:
 **View: RiskDashboard**
 - **Input**: Same as `analyzeCompanyLayoffRisk`
 - **Output**: Same as `analyzeCompanyLayoffRisk`
-- **Behavior**: Presents a three-screen product flow: landing/search, company weather report, and DACH market radar. The company report uses a top hero card for company name, weather state, score, confidence, and summary, followed by a recent-change timeline, risk signals, calm signals, employee/public sentiment patterns, DACH workplace terms, missing evidence, and score guardrail explanations. The DACH market radar shows a mock portfolio of DACH-relevant companies as filterable weather cards that open the corresponding company report.
+- **Behavior**: Presents a three-screen product flow: landing/search, company weather report, and DACH market radar. The landing screen is the default standalone route. The company report uses a top hero card for company name, weather state, score, confidence, and summary, followed by a recent-change timeline, risk signals, calm signals, employee/public sentiment patterns, DACH workplace terms, missing evidence, and score guardrail explanations. The DACH market radar shows a mock portfolio of DACH-relevant companies as filterable weather cards that open the corresponding company report. Embedded views include an "Open full report" or "Open radar page" action that points to the matching standalone route.
