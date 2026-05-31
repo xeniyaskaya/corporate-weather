@@ -315,24 +315,68 @@ function LandingScreen({
   onCompanyChange,
   onSubmit,
   onOpenMap,
+  onQuickSearch,
 }: {
   companyName: string;
   isSearching: boolean;
   onCompanyChange: (value: string) => void;
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
   onOpenMap: () => void;
+  onQuickSearch?: (companyName: string) => void;
 }) {
+  const starterActions = [
+    {
+      label: "Check your company weather",
+      detail: "Start with any employer name.",
+      onClick: () => {
+        const target = companyName.trim() || "Personio";
+        onCompanyChange(target);
+        onQuickSearch?.(target);
+      },
+    },
+    {
+      label: "Analyze recent employer signals",
+      detail: "Read hiring, sentiment, and restructuring cues.",
+      onClick: () => {
+        const target = companyName.trim() || "Zalando";
+        onCompanyChange(target);
+        onQuickSearch?.(target);
+      },
+    },
+    {
+      label: "Open DACH Weather Map",
+      detail: "Compare demo company weather states.",
+      onClick: onOpenMap,
+    },
+    {
+      label: "Try a storm-warning demo",
+      detail: "See how high-confidence signals appear.",
+      onClick: () => {
+        onCompanyChange("StormAG");
+        onQuickSearch?.("StormAG");
+      },
+    },
+  ];
+
   return (
     <main className="risk-shell">
-      <section className="landing-hero">
-        <div className="product-mark">
-          <span>CW</span>
-          <strong>Corporate Weather</strong>
+      <section className="landing-hero gpt-start-hero">
+        <div className="start-copy">
+          <div className="product-mark start-mark">
+            <span>CW</span>
+            <strong>Corporate Weather</strong>
+          </div>
+          <h1>Corporate Weather</h1>
+          <p className="start-subtitle">
+            Decode workplace weather signals across the DACH market.
+          </p>
+          <p className="start-description">
+            Companies rarely announce instability all at once. Corporate Weather reads
+            employee sentiment, hiring activity, restructuring signals, and DACH workplace
+            indicators to explain what is happening beneath the surface.
+          </p>
         </div>
-        <h1>Corporate Weather</h1>
-        <p className="summary">
-          DACH workplace weather radar for visible restructuring and layoff-risk signals.
-        </p>
+
         <SearchForm
           companyName={companyName}
           isSearching={isSearching}
@@ -341,9 +385,15 @@ function LandingScreen({
           onCompanyChange={onCompanyChange}
           onSubmit={onSubmit}
         />
-        <button className="secondary-action" type="button" onClick={onOpenMap}>
-          Open DACH Weather Map
-        </button>
+
+        <div className="starter-action-grid" aria-label="Starter actions">
+          {starterActions.map((action) => (
+            <button className="starter-action" key={action.label} type="button" onClick={action.onClick}>
+              <span>{action.label}</span>
+              <small>{action.detail}</small>
+            </button>
+          ))}
+        </div>
       </section>
 
       <section className="weather-states" aria-label="Weather state examples">
@@ -936,6 +986,7 @@ function HostedRiskDashboard() {
       onCompanyChange={setCompanyName}
       onSubmit={submitSearch}
       onOpenMap={goToMap}
+      onQuickSearch={runCompanySearch}
     />
   );
 }
@@ -1052,6 +1103,7 @@ function StandaloneRiskDashboard() {
       onCompanyChange={setCompanyName}
       onSubmit={submitSearch}
       onOpenMap={goToMap}
+      onQuickSearch={runCompanySearch}
     />
   );
 }

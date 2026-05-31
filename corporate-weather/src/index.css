@@ -110,6 +110,42 @@ select {
   font-size: clamp(48px, 7vw, 86px);
 }
 
+.gpt-start-hero {
+  display: grid;
+  gap: 22px;
+  min-height: auto;
+  padding: 34px;
+  background:
+    linear-gradient(135deg, rgba(37, 47, 62, 0.96), rgba(8, 13, 20, 0.94) 62%),
+    radial-gradient(circle at 86% 14%, rgba(183, 200, 255, 0.18), transparent 27%),
+    radial-gradient(circle at 12% 92%, rgba(147, 213, 185, 0.13), transparent 26%);
+}
+
+.start-copy {
+  max-width: 760px;
+}
+
+.start-mark {
+  margin-bottom: 22px;
+}
+
+.start-subtitle {
+  max-width: 720px;
+  margin: 12px 0 0;
+  color: #d8e2ec;
+  font-size: clamp(22px, 3vw, 34px);
+  font-weight: 850;
+  line-height: 1.12;
+}
+
+.start-description {
+  max-width: 740px;
+  margin: 18px 0 0;
+  color: #aeb9c7;
+  font-size: 17px;
+  line-height: 1.55;
+}
+
 .landing-hero .search-bar {
   grid-template-columns: minmax(0, 1fr) minmax(190px, 230px);
   max-width: 860px;
@@ -125,6 +161,59 @@ select {
   min-width: 0;
   width: 100%;
   padding: 0 18px;
+}
+
+.gpt-start-hero .search-bar {
+  margin-top: 4px;
+  margin-bottom: 0;
+}
+
+.starter-action-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  max-width: 860px;
+}
+
+.starter-action {
+  min-height: 104px;
+  padding: 18px;
+  border: 1px solid rgba(210, 225, 238, 0.13);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.025)),
+    rgba(8, 13, 20, 0.58);
+  color: #eef4f8;
+  cursor: pointer;
+  text-align: left;
+  transition:
+    border-color 160ms ease,
+    transform 160ms ease,
+    background 160ms ease;
+}
+
+.starter-action:hover {
+  border-color: rgba(183, 200, 255, 0.42);
+  background:
+    linear-gradient(135deg, rgba(183, 200, 255, 0.15), rgba(147, 213, 185, 0.06)),
+    rgba(8, 13, 20, 0.72);
+  transform: translateY(-1px);
+}
+
+.starter-action span {
+  display: block;
+  color: #eef4f8;
+  font-size: 17px;
+  font-weight: 900;
+  line-height: 1.2;
+}
+
+.starter-action small {
+  display: block;
+  margin-top: 9px;
+  color: #9aa8ba;
+  font-size: 13px;
+  line-height: 1.4;
 }
 
 .secondary-action,
@@ -1294,6 +1383,18 @@ li + li {
 
   .landing-hero h1 {
     font-size: 44px;
+  }
+
+  .start-subtitle {
+    font-size: 24px;
+  }
+
+  .start-description {
+    font-size: 15px;
+  }
+
+  .starter-action-grid {
+    grid-template-columns: 1fr;
   }
 
   .landing-hero .search-bar button {

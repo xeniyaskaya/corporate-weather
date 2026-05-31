@@ -126,6 +126,8 @@ The production website build outputs to:
 dist-web
 ```
 
+The same build command also emits the Skybridge `dist` folder so the Alpic deployment can still package the ChatGPT app.
+
 ### Deploy to Vercel
 
 1. Push this repo to GitHub.
