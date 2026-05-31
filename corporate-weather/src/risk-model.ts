@@ -665,6 +665,114 @@ const stormDemoData = buildRiskOutput(
   ],
 );
 
+function cloneDemoData(
+  base: RiskOutput,
+  companyName: string,
+  summary?: string,
+  override?: Pick<RiskOutput, "riskScore" | "riskLevel" | "confidence">,
+): RiskOutput {
+  const replaceDemoNames = (text: string) =>
+    text.replace(
+      /HealthyCo GmbH|HealthyCo|NormalSaaS GmbH|NormalSaaS|WatchlistTech GmbH|WatchlistTech|RecentLayoff GmbH|RecentLayoff|StormAG/g,
+      companyName,
+    );
+
+  const riskScore = override?.riskScore ?? base.riskScore;
+  const riskLevel = override?.riskLevel ?? base.riskLevel;
+  const confidence = override?.confidence ?? base.confidence;
+
+  return {
+    ...base,
+    companyName,
+    riskScore,
+    riskLevel,
+    confidence,
+    summary: summary ?? buildSummary(companyName, riskLevel, confidence),
+    signals: base.signals.map((item) => ({
+      ...item,
+      evidence: replaceDemoNames(item.evidence),
+      explanation: replaceDemoNames(item.explanation),
+    })),
+    calmSignals: base.calmSignals.map((item) => ({
+      ...item,
+      evidence: replaceDemoNames(item.evidence),
+      explanation: replaceDemoNames(item.explanation),
+    })),
+    missingEvidence: base.missingEvidence.map(replaceDemoNames),
+    watchNext: base.watchNext.map(replaceDemoNames),
+    scoreDetails: {
+      ...base.scoreDetails,
+      guardrailAdjustedScore: riskScore,
+      increasedBy: base.scoreDetails.increasedBy.map(replaceDemoNames),
+      reducedBy: base.scoreDetails.reducedBy.map(replaceDemoNames),
+      whyNotHigher: base.scoreDetails.whyNotHigher.map(replaceDemoNames),
+      whyNotLower: base.scoreDetails.whyNotLower.map(replaceDemoNames),
+      categoryContributions: base.scoreDetails.categoryContributions.map((item) => ({ ...item })),
+    },
+  };
+}
+
+const deelDemoData = cloneDemoData(
+  watchlistTechDemoData,
+  "Deel",
+  "Deel is Watchlist: the demo scan shows hiring and sentiment signals, but no high-confidence public restructuring confirmation.",
+  { riskScore: 44, riskLevel: "Watchlist", confidence: "Medium" },
+);
+const personioDemoData = cloneDemoData(
+  normalSaasDemoData,
+  "Personio",
+  "Personio is Watchlist: the demo scan shows generic tech pressure and profitability language, but no confirmed workforce-reduction reporting.",
+  { riskScore: 39, riskLevel: "Watchlist", confidence: "Low" },
+);
+const intercomDemoData = cloneDemoData(
+  healthyDemoData,
+  "Intercom",
+  "Intercom shows limited visible DACH workplace risk signals in this demo portfolio view.",
+  { riskScore: 24, riskLevel: "Clear", confidence: "Low" },
+);
+const zalandoDemoData = cloneDemoData(
+  watchlistTechDemoData,
+  "Zalando",
+  "Zalando is Watchlist: the demo scan shows slower hiring and employee sentiment patterns, but no confirmed public restructuring evidence.",
+  { riskScore: 47, riskLevel: "Watchlist", confidence: "Medium" },
+);
+const n26DemoData = cloneDemoData(
+  recentLayoffDemoData,
+  "N26",
+  "N26 is Cloudy in this demo portfolio view based on recent company-specific public signals without official confirmation.",
+  { riskScore: 62, riskLevel: "Cloudy", confidence: "Medium" },
+);
+const pipedriveDemoData = cloneDemoData(
+  healthyDemoData,
+  "Pipedrive",
+  "Pipedrive shows limited visible DACH workplace risk signals in this demo portfolio view.",
+  { riskScore: 23, riskLevel: "Clear", confidence: "Low" },
+);
+const acronisDemoData = cloneDemoData(
+  recentLayoffDemoData,
+  "Acronis",
+  "Acronis is Cloudy in this demo portfolio view based on recent company-specific public signals and hiring visibility.",
+  { riskScore: 60, riskLevel: "Cloudy", confidence: "Medium" },
+);
+const deeplDemoData = cloneDemoData(
+  healthyDemoData,
+  "DeepL",
+  "DeepL shows limited visible DACH workplace risk signals in this demo portfolio view.",
+  { riskScore: 21, riskLevel: "Clear", confidence: "Medium" },
+);
+const deliveryHeroDemoData = cloneDemoData(
+  stormDemoData,
+  "Delivery Hero",
+  "Delivery Hero is Storm Warning in this demo portfolio view because high-confidence public restructuring signals are visible.",
+  { riskScore: 84, riskLevel: "Storm Warning", confidence: "High" },
+);
+const flixDemoData = cloneDemoData(
+  normalSaasDemoData,
+  "Flix",
+  "Flix is Watchlist: the demo scan shows market pressure and indirect company language, but no confirmed workforce-reduction reporting.",
+  { riskScore: 41, riskLevel: "Watchlist", confidence: "Low" },
+);
+
 const demoCompanies: Record<string, RiskOutput> = {
   healthyco: healthyDemoData,
   healthycogmbh: healthyDemoData,
@@ -679,6 +787,16 @@ const demoCompanies: Record<string, RiskOutput> = {
   budgetcloud: recentLayoffDemoData,
   stormag: stormDemoData,
   futuremobility: stormDemoData,
+  deel: deelDemoData,
+  personio: personioDemoData,
+  intercom: intercomDemoData,
+  zalando: zalandoDemoData,
+  n26: n26DemoData,
+  pipedrive: pipedriveDemoData,
+  acronis: acronisDemoData,
+  deepl: deeplDemoData,
+  deliveryhero: deliveryHeroDemoData,
+  flix: flixDemoData,
 };
 
 function addSignal(signals: Signal[], item: Signal) {

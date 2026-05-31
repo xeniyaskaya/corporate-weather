@@ -19,41 +19,104 @@ const scaleLabel = {
 
 const mapCompanies = [
   {
-    name: "HealthyCo GmbH",
-    city: "Hamburg",
-    note: "Active hiring and product launch",
+    name: "Deel",
+    riskLevel: "Watchlist",
+    riskScore: 44,
+    confidence: "Medium",
+    topSignal: "Hiring footprint and profitability language",
     x: 38,
     y: 18,
   },
   {
-    name: "NormalSaaS GmbH",
-    city: "Berlin",
-    note: "Generic tech pressure",
+    name: "Personio",
+    riskLevel: "Watchlist",
+    riskScore: 39,
+    confidence: "Low",
+    topSignal: "Efficiency language without confirmed cuts",
     x: 62,
     y: 28,
   },
   {
-    name: "WatchlistTech GmbH",
-    city: "Munich",
-    note: "Hiring slowdown and Kununu uncertainty",
+    name: "Intercom",
+    riskLevel: "Clear",
+    riskScore: 24,
+    confidence: "Low",
+    topSignal: "Generic market caution only",
+    x: 25,
+    y: 46,
+  },
+  {
+    name: "Zalando",
+    riskLevel: "Watchlist",
+    riskScore: 47,
+    confidence: "Medium",
+    topSignal: "Slower hiring and employee sentiment pattern",
     x: 70,
     y: 70,
   },
   {
-    name: "RecentLayoff GmbH",
-    city: "Cologne",
-    note: "Recent public workforce signals",
+    name: "N26",
+    riskLevel: "Cloudy",
+    riskScore: 62,
+    confidence: "Medium",
+    topSignal: "Recent restructuring reporting",
     x: 42,
     y: 56,
   },
   {
-    name: "StormAG",
-    city: "Stuttgart",
-    note: "Public restructuring evidence",
+    name: "Pipedrive",
+    riskLevel: "Clear",
+    riskScore: 23,
+    confidence: "Low",
+    topSignal: "Active hiring counter-signal",
     x: 57,
     y: 76,
   },
-];
+  {
+    name: "Acronis",
+    riskLevel: "Cloudy",
+    riskScore: 60,
+    confidence: "Medium",
+    topSignal: "Reduced role visibility",
+    x: 52,
+    y: 40,
+  },
+  {
+    name: "DeepL",
+    riskLevel: "Clear",
+    riskScore: 21,
+    confidence: "Medium",
+    topSignal: "Product and engineering hiring active",
+    x: 48,
+    y: 62,
+  },
+  {
+    name: "Delivery Hero",
+    riskLevel: "Storm Warning",
+    riskScore: 84,
+    confidence: "High",
+    topSignal: "Confirmed public restructuring evidence",
+    x: 78,
+    y: 44,
+  },
+  {
+    name: "Flix",
+    riskLevel: "Watchlist",
+    riskScore: 41,
+    confidence: "Low",
+    topSignal: "Market pressure with limited company-specific evidence",
+    x: 57,
+    y: 24,
+  },
+] satisfies Array<{
+  name: string;
+  riskLevel: keyof typeof levelClass;
+  riskScore: number;
+  confidence: RiskOutput["confidence"];
+  topSignal: string;
+  x: number;
+  y: number;
+}>;
 
 const weatherStates = [
   {
@@ -533,6 +596,12 @@ function MapScreen({
   onBack: () => void;
   onOpenCompany: (companyName: string) => void;
 }) {
+  const [activeFilter, setActiveFilter] = useState<"All" | RiskOutput["riskLevel"]>("All");
+  const filteredCompanies =
+    activeFilter === "All"
+      ? mapCompanies
+      : mapCompanies.filter((company) => company.riskLevel === activeFilter);
+
   return (
     <main className="risk-shell">
       <nav className="screen-nav">
@@ -541,13 +610,13 @@ function MapScreen({
         </button>
       </nav>
 
-      <section className="map-hero">
+      <section className="map-hero radar-hero">
         <div>
-          <p className="eyebrow">DACH Weather Map</p>
-          <h1>Public signal landscape</h1>
+          <p className="eyebrow">DACH Weather Radar</p>
+          <h1>Workplace stability map</h1>
           <p className="summary">
-            Open a calibrated company report from the map. These examples reuse the same
-            scoring model as search.
+            A demo portfolio view for visible DACH workplace weather signals. Open any company
+            card to inspect the full report.
           </p>
         </div>
         {activeCompany ? (
@@ -559,27 +628,50 @@ function MapScreen({
         ) : null}
       </section>
 
-      <section className="map-board" aria-label="DACH company weather map">
-        <div className="map-outline" />
-        {mapCompanies.map((company) => (
+      <section className="radar-filter" aria-label="Weather filters">
+        {(["All", "Clear", "Watchlist", "Cloudy", "Storm Warning"] as const).map((filter) => (
           <button
-            className="map-marker"
-            key={company.name}
-            style={{ left: `${company.x}%`, top: `${company.y}%` }}
+            className={activeFilter === filter ? "active" : ""}
+            key={filter}
             type="button"
-            onClick={() => onOpenCompany(company.name)}
+            onClick={() => setActiveFilter(filter)}
           >
-            <span>{company.name}</span>
+            {filter}
           </button>
         ))}
       </section>
 
-      <section className="map-list">
+      <section className="radar-board" aria-label="DACH workplace weather radar">
+        <div className="radar-grid-lines" />
         {mapCompanies.map((company) => (
-          <button type="button" key={company.name} onClick={() => onOpenCompany(company.name)}>
-            <span>{company.city}</span>
+          <button
+            className={`map-marker ${levelClass[company.riskLevel]}`}
+            key={company.name}
+            style={{ left: `${company.x}%`, top: `${company.y}%` }}
+            type="button"
+            aria-label={`Open ${company.name} weather report`}
+            onClick={() => onOpenCompany(company.name)}
+          >
+            <span>{company.riskScore}</span>
+          </button>
+        ))}
+      </section>
+
+      <section className="radar-card-grid">
+        {filteredCompanies.map((company) => (
+          <button
+            className={`radar-card ${levelClass[company.riskLevel]}`}
+            type="button"
+            key={company.name}
+            onClick={() => onOpenCompany(company.name)}
+          >
+            <span className="radar-card-label">{company.riskLevel}</span>
             <strong>{company.name}</strong>
-            <p>{company.note}</p>
+            <div className="radar-card-metrics">
+              <span>{company.riskScore}/100</span>
+              <span>{company.confidence} confidence</span>
+            </div>
+            <p>{company.topSignal}</p>
           </button>
         ))}
       </section>

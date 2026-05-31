@@ -40,6 +40,8 @@ select {
 .screen-nav,
 .map-hero,
 .map-board,
+.radar-board,
+.radar-card,
 .map-list button,
 .risk-footer {
   border: 1px solid rgba(210, 225, 238, 0.12);
@@ -219,6 +221,31 @@ select {
   font-size: 34px;
 }
 
+.radar-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.radar-filter button {
+  min-height: 38px;
+  padding: 0 13px;
+  border: 1px solid rgba(210, 225, 238, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.045);
+  color: #c2cdd8;
+  cursor: pointer;
+  font-weight: 850;
+}
+
+.radar-filter button.active,
+.radar-filter button:hover {
+  border-color: rgba(183, 200, 255, 0.42);
+  background: rgba(183, 200, 255, 0.13);
+  color: #eef4f8;
+}
+
 .map-board {
   position: relative;
   min-height: 420px;
@@ -230,6 +257,28 @@ select {
     linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
     linear-gradient(0deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
   background-size: auto, 42px 42px, 42px 42px;
+}
+
+.radar-board {
+  position: relative;
+  min-height: 360px;
+  border-radius: 8px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(151, 205, 186, 0.16), transparent 24%),
+    radial-gradient(circle at 80% 30%, rgba(183, 200, 255, 0.16), transparent 25%),
+    radial-gradient(circle at 68% 78%, rgba(214, 176, 207, 0.14), transparent 22%),
+    linear-gradient(140deg, rgba(11, 16, 24, 0.94), rgba(20, 30, 42, 0.78));
+}
+
+.radar-grid-lines {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+  background-size: 46px 46px;
+  mask-image: radial-gradient(circle at center, black, transparent 78%);
 }
 
 .map-outline {
@@ -244,8 +293,8 @@ select {
 .map-marker {
   position: absolute;
   transform: translate(-50%, -50%);
-  min-width: 18px;
-  min-height: 18px;
+  min-width: 34px;
+  min-height: 34px;
   border: 0;
   border-radius: 999px;
   background: #b7c8ff;
@@ -253,17 +302,70 @@ select {
   box-shadow: 0 0 0 8px rgba(183, 200, 255, 0.12);
 }
 
+.radar-board .map-marker {
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.26);
+}
+
 .map-marker span {
-  position: absolute;
-  left: 22px;
-  top: 50%;
-  width: max-content;
-  max-width: 190px;
-  transform: translateY(-50%);
+  position: static;
   color: #eef4f8;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 900;
+  text-align: center;
+}
+
+.radar-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.radar-card {
+  min-height: 176px;
+  padding: 16px;
+  border-radius: 8px;
+  color: #eef4f8;
+  cursor: pointer;
   text-align: left;
+}
+
+.radar-card-label {
+  color: #aeb9c7;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.radar-card strong {
+  display: block;
+  margin: 10px 0;
+  font-size: 24px;
+  line-height: 1.1;
+}
+
+.radar-card-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.radar-card-metrics span {
+  padding: 6px 8px;
+  border: 1px solid rgba(210, 225, 238, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.055);
+  color: #eef4f8;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.radar-card p {
+  margin: 13px 0 0;
+  color: #c2cdd8;
+  font-size: 14px;
+  line-height: 1.45;
 }
 
 .map-list {
