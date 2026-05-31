@@ -47,6 +47,37 @@ const server = new McpServer(
       content: [],
     };
   },
+).registerTool(
+  {
+    name: "openCorporateWeather",
+    title: "Open Corporate Weather",
+    description:
+      "Open the Corporate Weather start screen so the user can choose a company scan or the DACH Weather Map. Use this when the user wants to start, explore, or open the app without naming a company.",
+    inputSchema: {},
+    annotations: {
+      readOnlyHint: true,
+      openWorldHint: false,
+      destructiveHint: false,
+    },
+    view: {
+      component: "corporate-weather-start",
+      description:
+        "Corporate Weather premium start screen with starter actions, search, and DACH Weather Map access.",
+      prefersBorder: true,
+    },
+    _meta: {
+      "openai/widgetAccessible": true,
+      "openai/toolInvocation/invoking": "Opening Corporate Weather",
+      "openai/toolInvocation/invoked": "Corporate Weather ready",
+    },
+  },
+  async () => ({
+    _meta: {
+      "openai/assistantInstructions":
+        "Do not write prose after this tool call. The Corporate Weather widget is the complete response.",
+    },
+    content: [],
+  }),
 );
 
 if (process.env.NODE_ENV === "production") {
