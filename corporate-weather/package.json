@@ -5,12 +5,15 @@
   "description": "Corporate Weather Skybridge GPT app for simulated company layoff-risk analysis",
   "type": "module",
   "scripts": {
-    "dev": "skybridge dev",
+    "dev": "vite --config vite.web.config.ts",
+    "dev:skybridge": "skybridge dev",
     "dev:tunnel": "skybridge dev --tunnel",
-    "build": "skybridge build",
+    "build": "vite build --config vite.web.config.ts",
+    "build:skybridge": "skybridge build",
     "eval:calibration": "tsx scripts/evaluate-calibration.mjs",
+    "preview": "vite preview --config vite.web.config.ts",
     "start": "skybridge start",
-    "deploy": "alpic deploy"
+    "deploy": "npm run build:skybridge && alpic deploy"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",

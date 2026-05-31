@@ -24,34 +24,45 @@ deno install
 yarn install
 ```
 
-#### 2. Start your local server
+#### 2. Start the standalone website
 
-Run the development server from this app directory:
+Run the normal public website locally from this app directory:
 
 ```bash
 npm run dev
-# or
-pnpm dev
-# or
-bun dev
-# or
-deno task dev
-# or
-yarn dev
+```
+
+This opens the standalone Corporate Weather website with routes for:
+- `/`
+- `/company/:companyName`
+- `/radar`
+
+The standalone website uses the same shared scoring logic in `src/risk-model.ts` as the ChatGPT/Skybridge app.
+
+#### 3. Start the Skybridge app locally
+
+Run the MCP/Skybridge development server from this app directory:
+
+```bash
+npm run dev:skybridge
 ```
 
 This command starts:
 - Your MCP server at `http://localhost:3000/mcp`.
 - Skybridge DevTools UI at `http://localhost:3000`.
 
-#### 3. Project structure
+#### 4. Project structure
 
 ```
 ├── src/
 │   ├── risk-model.ts     # DACH source strategy and scoring model
 │   ├── server.ts         # MCP server entry point
-│   └── helpers.ts        # Shared utilities
+│   ├── standalone.tsx    # Standalone public website entry point
+│   ├── views/            # Skybridge/ChatGPT embedded views
+│   └── helpers.ts        # Skybridge typed helpers
 ├── vite.config.ts
+├── vite.web.config.ts    # Standalone website Vite config
+├── vercel.json           # Vercel static-site deployment config
 ├── alpic.json            # Deployment config
 └── package.json
 ```
@@ -84,6 +95,68 @@ By enabling the tunnel, you'll also be able to access a playground to chat with 
 Skybridge is infrastructure vendor agnostic, and your app can be deployed on any cloud platform supporting MCP.
 
 The simplest way to deploy your app is by running the `deploy` command, which will push your MCP server to the [Alpic](https://alpic.ai/) cloud for free.
+
+## Standalone Website Deployment
+
+Corporate Weather also ships as a normal standalone React website. This is separate from the Alpic/Skybridge playground, so it does not look like a CustomGPT or MCP testing screen.
+
+The standalone website entry point is:
+
+```text
+index.html -> src/standalone.tsx
+```
+
+It reuses the shared scoring module:
+
+```text
+src/risk-model.ts
+```
+
+### Local Website Commands
+
+```bash
+npm run dev
+npm run build
+npm run preview
+```
+
+The production website build outputs to:
+
+```text
+dist-web
+```
+
+### Deploy to Vercel
+
+1. Push this repo to GitHub.
+2. Open Vercel and choose **Add New Project**.
+3. Import the `xeniyaskaya/corporate-weather` repository.
+4. Use these settings:
+
+```text
+Framework Preset: Vite
+Build Command: npm run build
+Output Directory: dist-web
+Install Command: npm install
+```
+
+The included `vercel.json` also configures SPA rewrites, so these public routes work after deploy:
+
+```text
+/
+/company/:companyName
+/radar
+```
+
+### Skybridge Commands
+
+The ChatGPT/Skybridge app remains available through separate scripts:
+
+```bash
+npm run dev:skybridge
+npm run build:skybridge
+npm run deploy
+```
 
 ## Resources
 - [Skybridge Documentation](https://docs.skybridge.tech/)

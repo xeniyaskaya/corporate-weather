@@ -30,6 +30,11 @@ select {
   padding: 16px;
 }
 
+.standalone-shell {
+  padding-top: 28px;
+  padding-bottom: 28px;
+}
+
 .search-bar,
 .hero,
 .metric-strip,
@@ -412,6 +417,10 @@ select {
   color: #c2cdd8;
   font-size: 14px;
   line-height: 1.45;
+}
+
+.standalone-radar-grid {
+  margin-top: 12px;
 }
 
 .map-list {
