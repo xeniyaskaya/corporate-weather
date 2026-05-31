@@ -238,6 +238,11 @@ function hasSkybridgeHost() {
   return typeof window !== "undefined" && "skybridge" in window;
 }
 
+function isAlpicPlaygroundHost() {
+  if (typeof window === "undefined") return false;
+  return window.location.hostname.endsWith("alpic.live") || window.location.pathname.startsWith("/try");
+}
+
 function routePath(screen: Screen, companyName?: string) {
   if (screen === "map") return "/radar";
   if (screen === "report" && companyName?.trim()) {
@@ -257,6 +262,14 @@ function routeUrl(screen: Screen, companyName?: string) {
   const hashPath = path === "/" ? "" : `#${path}`;
 
   return `${window.location.origin}${basePath}${hashPath}`;
+}
+
+function externalStandaloneUrl(screen: Screen, companyName?: string) {
+  const configuredBase = import.meta.env.VITE_PUBLIC_SITE_URL as string | undefined;
+  if (!configuredBase) return undefined;
+
+  const base = configuredBase.replace(/\/$/, "");
+  return `${base}${routePath(screen, companyName)}`;
 }
 
 function readInitialRoute(): RouteState {
@@ -1040,9 +1053,9 @@ function HostedRiskDashboard() {
     }
   }, []);
 
-  // Standalone mode reads clean paths when the host supports them and falls back to
-  // `/try#/...` links on Alpic; embedded Skybridge/ChatGPT mode keeps navigation internal
-  // and exposes the matching standalone route through the host's "open in app" affordance.
+  // Standalone mode reads clean paths when the host supports them. Embedded
+  // Skybridge/ChatGPT mode keeps navigation internal; external buttons only appear
+  // when VITE_PUBLIC_SITE_URL points to a real standalone deployment.
   useEffect(() => {
     if (
       typeof window === "undefined" ||
@@ -1131,8 +1144,14 @@ function HostedRiskDashboard() {
   }
 
   function openFullPage(targetScreen: Screen, targetCompany?: string) {
-    openExternal(routeUrl(targetScreen, targetCompany), { redirectUrl: false });
+    const targetUrl = externalStandaloneUrl(targetScreen, targetCompany);
+    if (!targetUrl) return;
+    openExternal(targetUrl, { redirectUrl: false });
   }
+
+  const canOpenExternalStandalone = Boolean(
+    externalStandaloneUrl(screen, screen === "report" ? output?.companyName ?? companyName : undefined),
+  );
 
   if (screen === "map") {
     return (
@@ -1141,7 +1160,7 @@ function HostedRiskDashboard() {
         onBack={() => (output ? goToReport(output.companyName) : goToLanding())}
         onOpenCompany={runCompanySearch}
         onOpenRadarPage={() => openFullPage("map")}
-        showFullReportLink={embeddedHost}
+        showFullReportLink={embeddedHost && canOpenExternalStandalone && !isAlpicPlaygroundHost()}
       />
     );
   }
@@ -1154,7 +1173,7 @@ function HostedRiskDashboard() {
         onOpenMap={goToMap}
         onOpenDemoCompany={runCompanySearch}
         onOpenFullReport={() => openFullPage("report", output.companyName)}
-        showFullReportLink={embeddedHost}
+        showFullReportLink={embeddedHost && canOpenExternalStandalone && !isAlpicPlaygroundHost()}
       />
     );
   }
