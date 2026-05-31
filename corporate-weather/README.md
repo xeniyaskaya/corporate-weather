@@ -160,6 +160,24 @@ npm run build:skybridge
 npm run deploy
 ```
 
+## ChatGPT App Directory Submission
+
+The public ChatGPT App Directory submission packet is in:
+
+```text
+docs/chatgpt-app-submission.md
+```
+
+It includes the MCP server URL, listing copy, tool safety annotations, CSP notes, test prompts, review notes, and pre-submission checks.
+
+The draft privacy policy is in:
+
+```text
+docs/privacy-policy.md
+```
+
+Before public submission, publish the standalone website and privacy policy so the OpenAI submission form has public company/developer and privacy-policy URLs.
+
 ## Resources
 - [Skybridge Documentation](https://docs.skybridge.tech/)
 - [Apps SDK Documentation](https://developers.openai.com/apps-sdk)

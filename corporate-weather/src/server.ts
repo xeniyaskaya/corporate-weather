@@ -27,6 +27,11 @@ const server = new McpServer(
       component: "risk-dashboard",
       description:
         "Corporate Weather dashboard. The widget is the full user-facing report; do not repeat, summarize, or explain the results in chat text.",
+      csp: {
+        connectDomains: [],
+        resourceDomains: [],
+        redirectDomains: [],
+      },
       prefersBorder: true,
     },
     _meta: {
@@ -63,6 +68,11 @@ const server = new McpServer(
       component: "corporate-weather-start",
       description:
         "Corporate Weather premium start screen with starter actions, search, and DACH Weather Map access.",
+      csp: {
+        connectDomains: [],
+        resourceDomains: [],
+        redirectDomains: [],
+      },
       prefersBorder: true,
     },
     _meta: {

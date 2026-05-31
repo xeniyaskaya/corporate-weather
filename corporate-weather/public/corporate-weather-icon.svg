@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Corporate Weather</title>
+  <desc id="desc">A dark premium weather radar mark with the letters CW.</desc>
+  <defs>
+    <linearGradient id="bg" x1="80" y1="64" x2="440" y2="448" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2c3849"/>
+      <stop offset="0.62" stop-color="#0d131c"/>
+      <stop offset="1" stop-color="#080c12"/>
+    </linearGradient>
+    <linearGradient id="ring" x1="115" y1="103" x2="390" y2="406" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#97d5b8"/>
+      <stop offset="0.55" stop-color="#b7c8ff"/>
+      <stop offset="1" stop-color="#d6b0cf"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <circle cx="256" cy="256" r="158" fill="none" stroke="#2b3544" stroke-width="28"/>
+  <path d="M256 98a158 158 0 0 1 139 83" fill="none" stroke="url(#ring)" stroke-width="28" stroke-linecap="round"/>
+  <path d="M128 328c26 36 72 58 128 58 61 0 110-27 136-70" fill="none" stroke="#97d5b8" stroke-opacity="0.55" stroke-width="18" stroke-linecap="round"/>
+  <text x="256" y="284" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="112" font-weight="800" fill="#eef4f8">CW</text>
+</svg>
