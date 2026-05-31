@@ -603,7 +603,7 @@ function MapScreen({
       : mapCompanies.filter((company) => company.riskLevel === activeFilter);
 
   return (
-    <main className="risk-shell">
+    <main className="risk-shell radar-shell">
       <nav className="screen-nav">
         <button type="button" onClick={onBack}>
           Back
@@ -641,39 +641,47 @@ function MapScreen({
         ))}
       </section>
 
-      <section className="radar-board" aria-label="DACH workplace weather radar">
-        <div className="radar-grid-lines" />
-        {mapCompanies.map((company) => (
-          <button
-            className={`map-marker ${levelClass[company.riskLevel]}`}
-            key={company.name}
-            style={{ left: `${company.x}%`, top: `${company.y}%` }}
-            type="button"
-            aria-label={`Open ${company.name} weather report`}
-            onClick={() => onOpenCompany(company.name)}
-          >
-            <span>{company.riskScore}</span>
-          </button>
-        ))}
-      </section>
+      <section className="radar-layout">
+        <div className="radar-board" aria-label="DACH workplace weather radar">
+          <div className="radar-grid-lines" />
+          {mapCompanies.map((company) => (
+            <button
+              className={`map-marker ${levelClass[company.riskLevel]}`}
+              key={company.name}
+              style={{ left: `${company.x}%`, top: `${company.y}%` }}
+              type="button"
+              aria-label={`Open ${company.name} weather report`}
+              onClick={() => onOpenCompany(company.name)}
+            >
+              <span>{company.riskScore}</span>
+            </button>
+          ))}
+        </div>
 
-      <section className="radar-card-grid">
-        {filteredCompanies.map((company) => (
-          <button
-            className={`radar-card ${levelClass[company.riskLevel]}`}
-            type="button"
-            key={company.name}
-            onClick={() => onOpenCompany(company.name)}
-          >
-            <span className="radar-card-label">{company.riskLevel}</span>
-            <strong>{company.name}</strong>
-            <div className="radar-card-metrics">
-              <span>{company.riskScore}/100</span>
-              <span>{company.confidence} confidence</span>
-            </div>
-            <p>{company.topSignal}</p>
-          </button>
-        ))}
+        <div className="radar-results">
+          <div className="radar-results-header">
+            <span>{filteredCompanies.length} companies</span>
+            <strong>{activeFilter === "All" ? "All weather states" : activeFilter}</strong>
+          </div>
+          <div className="radar-card-grid">
+            {filteredCompanies.map((company) => (
+              <button
+                className={`radar-card ${levelClass[company.riskLevel]}`}
+                type="button"
+                key={company.name}
+                onClick={() => onOpenCompany(company.name)}
+              >
+                <span className="radar-card-label">{company.riskLevel}</span>
+                <strong>{company.name}</strong>
+                <div className="radar-card-metrics">
+                  <span>{company.riskScore}/100</span>
+                  <span>{company.confidence} confidence</span>
+                </div>
+                <p>{company.topSignal}</p>
+              </button>
+            ))}
+          </div>
+        </div>
       </section>
     </main>
   );
