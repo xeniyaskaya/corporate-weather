@@ -2,7 +2,12 @@ import "../index.css";
 import { useEffect, useState } from "react";
 import { useOpenExternal, useSetOpenInAppUrl } from "skybridge/web";
 import { useCallTool, useToolInfo } from "../helpers.js";
-import { analyzeCompany } from "../risk-model.js";
+import {
+  analyzeCompany,
+  fallbackDemoCompanyNames,
+  firstRunCompanyNames,
+  signalSourcesAnalyzed,
+} from "../risk-model.js";
 
 const levelClass = {
   Clear: "level-clear",
@@ -157,6 +162,13 @@ const workplaceTerms = [
   "Effizienzprogramm",
 ];
 
+const loadingMessages = [
+  "Scanning DACH business signals...",
+  "Analyzing employee signal clusters...",
+  "Checking workplace weather...",
+  "Looking for restructuring indicators...",
+];
+
 type Screen = "landing" | "report" | "map";
 type RouteState = {
   screen: Screen;
@@ -275,21 +287,44 @@ function updateStandalonePath(screen: Screen, companyName?: string) {
   }
 }
 
+function readDemoMode() {
+  if (typeof window === "undefined") return false;
+  const params = new URLSearchParams(window.location.search);
+  try {
+    return params.get("demo") === "1" || window.localStorage.getItem("corporate-weather-demo") === "1";
+  } catch {
+    return params.get("demo") === "1";
+  }
+}
+
+function persistDemoMode(enabled: boolean) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem("corporate-weather-demo", enabled ? "1" : "0");
+  } catch {
+    // Embedded hosts can block localStorage; demo mode still works in memory.
+  }
+}
+
 function SearchForm({
   companyName,
   isSearching,
+  demoMode,
   label = "Company",
   ctaLabel = "Analyze",
   placeholder = "Try HealthyCo GmbH, RecentLayoff GmbH, or StormAG",
   onCompanyChange,
+  onDemoModeChange,
   onSubmit,
 }: {
   companyName: string;
   isSearching: boolean;
+  demoMode?: boolean;
   label?: string;
   ctaLabel?: string;
   placeholder?: string;
   onCompanyChange: (value: string) => void;
+  onDemoModeChange?: (value: boolean) => void;
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
 }) {
   return (
@@ -305,6 +340,16 @@ function SearchForm({
       <button type="submit" disabled={isSearching || !companyName.trim()}>
         {isSearching ? "Scanning" : ctaLabel}
       </button>
+      {onDemoModeChange ? (
+        <label className="demo-switch" title="Protected demo mode uses calibrated sample evidence.">
+          <input
+            checked={Boolean(demoMode)}
+            type="checkbox"
+            onChange={(event) => onDemoModeChange(event.target.checked)}
+          />
+          <span>Demo mode</span>
+        </label>
+      ) : null}
     </form>
   );
 }
@@ -312,14 +357,18 @@ function SearchForm({
 function LandingScreen({
   companyName,
   isSearching,
+  demoMode,
   onCompanyChange,
+  onDemoModeChange,
   onSubmit,
   onOpenMap,
   onQuickSearch,
 }: {
   companyName: string;
   isSearching: boolean;
+  demoMode: boolean;
   onCompanyChange: (value: string) => void;
+  onDemoModeChange: (value: boolean) => void;
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
   onOpenMap: () => void;
   onQuickSearch?: (companyName: string) => void;
@@ -383,8 +432,18 @@ function LandingScreen({
           ctaLabel="Scan company weather"
           placeholder="Search a company, e.g. Personio, Zalando, Delivery Hero"
           onCompanyChange={onCompanyChange}
+          demoMode={demoMode}
+          onDemoModeChange={onDemoModeChange}
           onSubmit={onSubmit}
         />
+
+        <div className="example-row" aria-label="First run examples">
+          {firstRunCompanyNames.map((name) => (
+            <button key={name} type="button" onClick={() => onQuickSearch?.(name)}>
+              {name}
+            </button>
+          ))}
+        </div>
 
         <div className="starter-action-grid" aria-label="Starter actions">
           {starterActions.map((action) => (
@@ -526,16 +585,96 @@ function ReportSection({
   );
 }
 
+function LoadingScreen({ companyName }: { companyName: string }) {
+  const [messageIndex, setMessageIndex] = useState(0);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setMessageIndex((index) => (index + 1) % loadingMessages.length);
+    }, 1300);
+
+    return () => window.clearInterval(timer);
+  }, []);
+
+  return (
+    <main className="risk-shell">
+      <section className="loading-panel premium-loading">
+        <div className="loading-orbit" aria-hidden="true">
+          <span />
+        </div>
+        <div>
+          <p className="eyebrow">Corporate Weather</p>
+          <h1>Scanning {companyName || "company"}...</h1>
+          <p>{loadingMessages[messageIndex]}</p>
+        </div>
+      </section>
+    </main>
+  );
+}
+
+function DemoFallbackActions({ onOpenCompany }: { onOpenCompany: (companyName: string) => void }) {
+  return (
+    <div className="demo-fallback">
+      <p>Continue with a calibrated demo report:</p>
+      <div>
+        {fallbackDemoCompanyNames.map((name) => (
+          <button key={name} type="button" onClick={() => onOpenCompany(name)}>
+            {name}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function confidenceExplanation(output: RiskOutput) {
+  if (output.confidence === "High") {
+    return "High confidence because the report includes strong company-specific evidence from reliable public or demo-calibrated sources.";
+  }
+
+  if (output.confidence === "Medium") {
+    return "Medium confidence because visible company-specific signals exist, but formal confirmation or broader corroboration is still limited.";
+  }
+
+  return "Low confidence because evidence is limited, indirect, or mostly contextual. The score stays cautious until stronger public signals appear.";
+}
+
+function hasUnavailableSources(output: RiskOutput) {
+  return output.sourceChecks.some((source) => source.status === "error");
+}
+
+function hasLimitedEvidence(output: RiskOutput) {
+  return output.signals.length <= 1 || output.confidence === "Low";
+}
+
+function SourceTransparency({ output }: { output: RiskOutput }) {
+  return (
+    <div className="source-transparency">
+      <h3>Signals analyzed</h3>
+      <div>
+        {signalSourcesAnalyzed.map((source) => (
+          <span key={source}>{source}</span>
+        ))}
+      </div>
+      {hasUnavailableSources(output) ? (
+        <p>Some signal sources were unavailable. Results may be incomplete.</p>
+      ) : null}
+    </div>
+  );
+}
+
 function ReportScreen({
   output,
   onBack,
   onOpenMap,
+  onOpenDemoCompany,
   onOpenFullReport,
   showFullReportLink,
 }: {
   output: RiskOutput;
   onBack: () => void;
   onOpenMap: () => void;
+  onOpenDemoCompany: (companyName: string) => void;
   onOpenFullReport: () => void;
   showFullReportLink: boolean;
 }) {
@@ -607,6 +746,20 @@ function ReportScreen({
         </div>
       </section>
 
+      {hasUnavailableSources(output) ? (
+        <div className="status-banner">
+          Some signal sources were unavailable. Results may be incomplete.
+        </div>
+      ) : null}
+
+      {hasLimitedEvidence(output) ? (
+        <div className="status-banner calm-banner">
+          We found limited public signals for this company.
+        </div>
+      ) : null}
+
+      <SourceTransparency output={output} />
+
       <button className="radar-link" type="button" onClick={onOpenMap}>
         Open DACH Market Radar
       </button>
@@ -631,9 +784,15 @@ function ReportScreen({
                 <SignalCard key={`${signal.title}-${index}`} signal={signal} />
               ))
             ) : (
-              <p className="empty-note">No visible risk signals were surfaced in this scan.</p>
+              <p className="empty-note">
+                We found limited public signals for this company.
+              </p>
             )}
           </div>
+        </ReportSection>
+
+        <ReportSection eyebrow="Confidence" title={`${output.confidence} Confidence`}>
+          <p className="empty-note">{confidenceExplanation(output)}</p>
         </ReportSection>
 
         <ReportSection eyebrow="Calm" title="Calm Signals">
@@ -708,6 +867,12 @@ function ReportScreen({
             ))}
           </ul>
         </ReportSection>
+
+        {hasLimitedEvidence(output) ? (
+          <ReportSection eyebrow="Demo fallback" title="Need a Complete Demo Report?">
+            <DemoFallbackActions onOpenCompany={onOpenDemoCompany} />
+          </ReportSection>
+        ) : null}
       </div>
 
       <footer className="risk-footer">Signal analysis only. Not a prediction or legal advice.</footer>
@@ -838,6 +1003,8 @@ function HostedRiskDashboard() {
     initialRoute.screen !== "landing" || !toolInfo.input?.companyName ? initialRoute.screen : "report",
   );
   const [searchedOutput, setSearchedOutput] = useState<RiskOutput | undefined>();
+  const [demoMode, setDemoModeState] = useState(readDemoMode);
+  const [localSearching, setLocalSearching] = useState(false);
 
   const metadataResult =
     toolInfo.isSuccess && "result" in toolInfo.responseMetadata
@@ -846,6 +1013,7 @@ function HostedRiskDashboard() {
   const dataMetaResult =
     data?.meta && "result" in data.meta ? (data.meta.result as RiskOutput) : undefined;
   const output = searchedOutput ?? dataMetaResult ?? (screen === "report" ? metadataResult : undefined);
+  const isBusy = isSearching || localSearching;
   const openInAppTarget = routeUrl(
     screen,
     screen === "report" ? output?.companyName ?? companyName : undefined,
@@ -914,7 +1082,32 @@ function HostedRiskDashboard() {
     setCompanyName(trimmedName);
     setScreen("report");
     updateStandalonePath("report", trimmedName);
+    setSearchedOutput(undefined);
+
+    if (demoMode) {
+      setLocalSearching(true);
+      analyzeCompany(trimmedName, { demoMode: true })
+        .then((result) => {
+          setSearchedOutput(result);
+          setCompanyName(result.companyName);
+          updateStandalonePath("report", result.companyName);
+        })
+        .catch(() => analyzeCompany(trimmedName))
+        .then((result) => {
+          if (result) {
+            setSearchedOutput(result);
+          }
+        })
+        .finally(() => setLocalSearching(false));
+      return;
+    }
+
     callTool({ companyName: trimmedName });
+  }
+
+  function setDemoMode(enabled: boolean) {
+    setDemoModeState(enabled);
+    persistDemoMode(enabled);
   }
 
   function submitSearch(event: React.FormEvent<HTMLFormElement>) {
@@ -959,6 +1152,7 @@ function HostedRiskDashboard() {
         output={output}
         onBack={goToLanding}
         onOpenMap={goToMap}
+        onOpenDemoCompany={runCompanySearch}
         onOpenFullReport={() => openFullPage("report", output.companyName)}
         showFullReportLink={embeddedHost}
       />
@@ -966,24 +1160,16 @@ function HostedRiskDashboard() {
   }
 
   if (screen === "report") {
-    return (
-      <main className="risk-shell">
-        <section className="loading-panel">
-          <div className="loading-dot" />
-          <div>
-            <p className="eyebrow">Corporate Weather</p>
-            <h1>{isSearching ? "Scanning" : "Preparing"} {companyName || "company"}...</h1>
-          </div>
-        </section>
-      </main>
-    );
+    return <LoadingScreen companyName={companyName} />;
   }
 
   return (
     <LandingScreen
       companyName={companyName}
-      isSearching={isSearching}
+      isSearching={isBusy}
+      demoMode={demoMode}
       onCompanyChange={setCompanyName}
+      onDemoModeChange={setDemoMode}
       onSubmit={submitSearch}
       onOpenMap={goToMap}
       onQuickSearch={runCompanySearch}
@@ -997,6 +1183,7 @@ function StandaloneRiskDashboard() {
   const [screen, setScreen] = useState<Screen>(initialRoute.screen);
   const [output, setOutput] = useState<RiskOutput | undefined>();
   const [isSearching, setIsSearching] = useState(false);
+  const [demoMode, setDemoModeState] = useState(readDemoMode);
 
   async function runCompanySearch(name: string) {
     const trimmedName = name.trim();
@@ -1008,13 +1195,18 @@ function StandaloneRiskDashboard() {
     updateStandalonePath("report", trimmedName);
 
     try {
-      const result = await analyzeCompany(trimmedName);
+      const result = await analyzeCompany(trimmedName, { demoMode });
       setOutput(result);
       setCompanyName(result.companyName);
       updateStandalonePath("report", result.companyName);
     } finally {
       setIsSearching(false);
     }
+  }
+
+  function setDemoMode(enabled: boolean) {
+    setDemoModeState(enabled);
+    persistDemoMode(enabled);
   }
 
   useEffect(() => {
@@ -1076,6 +1268,7 @@ function StandaloneRiskDashboard() {
         output={output}
         onBack={goToLanding}
         onOpenMap={goToMap}
+        onOpenDemoCompany={runCompanySearch}
         onOpenFullReport={() => undefined}
         showFullReportLink={false}
       />
@@ -1083,24 +1276,16 @@ function StandaloneRiskDashboard() {
   }
 
   if (screen === "report") {
-    return (
-      <main className="risk-shell">
-        <section className="loading-panel">
-          <div className="loading-dot" />
-          <div>
-            <p className="eyebrow">Corporate Weather</p>
-            <h1>{isSearching ? "Scanning" : "Preparing"} {companyName || "company"}...</h1>
-          </div>
-        </section>
-      </main>
-    );
+    return <LoadingScreen companyName={companyName} />;
   }
 
   return (
     <LandingScreen
       companyName={companyName}
       isSearching={isSearching}
+      demoMode={demoMode}
       onCompanyChange={setCompanyName}
+      onDemoModeChange={setDemoMode}
       onSubmit={submitSearch}
       onOpenMap={goToMap}
       onQuickSearch={runCompanySearch}

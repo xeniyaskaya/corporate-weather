@@ -85,6 +85,37 @@ type SignalScale = Signal["severity"];
 type RiskCategory = Signal["category"];
 type ScoreDetails = z.infer<typeof scoreDetailsSchema>;
 
+export const firstRunCompanyNames = ["Delivery Hero", "Intercom", "Zalando", "DeepL"] as const;
+
+export const fallbackDemoCompanyNames = [
+  "HealthyCo GmbH",
+  "WatchlistTech GmbH",
+  "RecentLayoff GmbH",
+  "StormAG",
+  "Delivery Hero",
+] as const;
+
+export const radarDemoCompanyNames = [
+  "Deel",
+  "Personio",
+  "Intercom",
+  "Zalando",
+  "N26",
+  "Pipedrive",
+  "Acronis",
+  "DeepL",
+  "Delivery Hero",
+  "Flix",
+] as const;
+
+export const signalSourcesAnalyzed = [
+  "Employee activity",
+  "Public company communications",
+  "Careers data",
+  "DACH business press",
+  "Workplace review signals",
+] as const;
+
 export type RiskOutput = {
   companyName: string;
   riskScore: number;
@@ -183,6 +214,66 @@ function calmSignal(
   explanation: string,
 ): CalmSignal {
   return { title, impact, evidence, explanation };
+}
+
+function sourceCheck(
+  source: string,
+  status: SourceCheck["status"],
+  resultCount: number,
+  summary: string,
+): SourceCheck {
+  return {
+    source,
+    status,
+    provider: status === "demo" ? "calibrated demo data" : "simulated DACH collector",
+    queryCount: status === "error" ? 0 : 1,
+    resultCount,
+    summary,
+  };
+}
+
+function defaultSourceChecks(
+  signals: Signal[],
+  calmSignals: CalmSignal[],
+  missingEvidence: string[],
+  status: SourceCheck["status"] = "checked",
+): SourceCheck[] {
+  const evidenceText = `${JSON.stringify(signals)} ${JSON.stringify(calmSignals)} ${JSON.stringify(missingEvidence)}`;
+
+  return [
+    sourceCheck(
+      "Employee activity",
+      status,
+      signals.filter((item) => item.category === "Kununu").length,
+      evidenceText.includes("Kununu")
+        ? "Employee-sentiment style signals were included in the scan."
+        : "No repeated employee signal cluster was surfaced.",
+    ),
+    sourceCheck(
+      "Public company communications",
+      status,
+      signals.filter((item) => item.category === "Company-Owned" || item.category === "Leadership Language").length,
+      "Company-owned and leadership-language indicators were considered.",
+    ),
+    sourceCheck(
+      "Careers data",
+      status,
+      signals.filter((item) => item.category === "Careers").length + calmSignals.filter((item) => item.title.includes("hiring")).length,
+      "Hiring visibility and role coverage were considered.",
+    ),
+    sourceCheck(
+      "DACH business press",
+      status,
+      signals.filter((item) => item.category === "DACH Press" || item.category === "Market Context").length,
+      "DACH press and market context signals were considered.",
+    ),
+    sourceCheck(
+      "Workplace review signals",
+      status,
+      signals.filter((item) => item.category === "Kununu").length,
+      "Workplace review language was treated as supporting evidence only.",
+    ),
+  ];
 }
 
 function isGenericMarketSignal(item: Signal) {
@@ -398,7 +489,7 @@ function buildRiskOutput(
     summary: summary ?? buildSummary(companyName, riskLevel, confidence),
     signals,
     calmSignals,
-    sourceChecks,
+    sourceChecks: sourceChecks.length > 0 ? sourceChecks : defaultSourceChecks(signals, calmSignals, missingEvidence),
     missingEvidence,
     watchNext,
     scoreDetails,
@@ -698,6 +789,7 @@ function cloneDemoData(
       evidence: replaceDemoNames(item.evidence),
       explanation: replaceDemoNames(item.explanation),
     })),
+    sourceChecks: defaultSourceChecks(base.signals, base.calmSignals, base.missingEvidence, "demo"),
     missingEvidence: base.missingEvidence.map(replaceDemoNames),
     watchNext: base.watchNext.map(replaceDemoNames),
     scoreDetails: {
@@ -798,6 +890,21 @@ const demoCompanies: Record<string, RiskOutput> = {
   deliveryhero: deliveryHeroDemoData,
   flix: flixDemoData,
 };
+
+export function isKnownDemoCompany(companyName: string) {
+  return normalizeDemoKey(companyName) in demoCompanies;
+}
+
+function calibratedDemoFor(companyName: string) {
+  const fallbackNames = [...fallbackDemoCompanyNames];
+  const baseName = fallbackNames[hashCompany(companyName) % fallbackNames.length];
+  const base = demoCompanies[normalizeDemoKey(baseName)];
+  return cloneDemoData(
+    base,
+    companyName,
+    `${companyName} is shown in protected demo mode with calibrated DACH workplace-weather evidence and a complete report.`,
+  );
+}
 
 function addSignal(signals: Signal[], item: Signal) {
   signals.push(item);
@@ -926,7 +1033,7 @@ async function liveAnalysis(companyName: string) {
     companyName,
     signals,
     calmSignals,
-    [],
+    defaultSourceChecks(signals, calmSignals, missingEvidence),
     missingEvidence,
     [
       "Watch for reputable DACH press confirmation from sources such as Handelsblatt, WirtschaftsWoche, Manager Magazin, t3n, Heise, FAZ, or Süddeutsche.",
@@ -937,45 +1044,49 @@ async function liveAnalysis(companyName: string) {
 }
 
 function genericCloudyDemoData(companyName: string): RiskOutput {
+  const signals = [
+    signal(
+      "Efficiency language detected",
+      "Leadership Language",
+      1,
+      3,
+      4,
+      3,
+      true,
+      "Fallback data found generic focus, efficiency, or profitability language.",
+      "This is deliberately low severity because it is not layoff evidence.",
+    ),
+    signal(
+      "Hiring visibility limited",
+      "Careers",
+      2,
+      3,
+      3,
+      3,
+      true,
+      "Fallback data could not establish broad current hiring.",
+      "Limited hiring visibility raises watchlist risk, but not high risk without stronger evidence.",
+    ),
+  ];
+  const calmSignals = [
+    calmSignal(
+      "No public layoff report verified",
+      -6,
+      "Fallback data has no reputable public layoff or site-closure confirmation.",
+      "Missing public confirmation keeps the fallback cautious.",
+    ),
+  ];
+  const missingEvidence = [
+    "Live analysis failed, so this result uses cautious fallback data.",
+    "No verified public layoff report was available in the fallback path.",
+  ];
+
   return buildRiskOutput(
     companyName,
-    [
-      signal(
-        "Efficiency language detected",
-        "Leadership Language",
-        1,
-        3,
-        4,
-        3,
-        true,
-        "Fallback data found generic focus, efficiency, or profitability language.",
-        "This is deliberately low severity because it is not layoff evidence.",
-      ),
-      signal(
-        "Hiring visibility limited",
-        "Careers",
-        2,
-        3,
-        3,
-        3,
-        true,
-        "Fallback data could not establish broad current hiring.",
-        "Limited hiring visibility raises watchlist risk, but not high risk without stronger evidence.",
-      ),
-    ],
-    [
-      calmSignal(
-        "No public layoff report verified",
-        -6,
-        "Fallback data has no reputable public layoff or site-closure confirmation.",
-        "Missing public confirmation keeps the fallback cautious.",
-      ),
-    ],
-    [],
-    [
-      "Live analysis failed, so this result uses cautious fallback data.",
-      "No verified public layoff report was available in the fallback path.",
-    ],
+    signals,
+    calmSignals,
+    defaultSourceChecks(signals, calmSignals, missingEvidence, "error"),
+    missingEvidence,
     [
       "Re-run analysis when live sources are available.",
       "Watch for Kununu corroboration, hiring changes, and reputable public reporting.",
@@ -988,10 +1099,17 @@ function normalizeDemoKey(companyName: string) {
   return companyName.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
-export async function analyzeCompany(companyName: string): Promise<RiskOutput> {
+export async function analyzeCompany(
+  companyName: string,
+  options: { demoMode?: boolean } = {},
+): Promise<RiskOutput> {
   const demoData = demoCompanies[normalizeDemoKey(companyName)];
   if (demoData) {
     return demoData;
+  }
+
+  if (options.demoMode) {
+    return calibratedDemoFor(companyName);
   }
 
   try {
