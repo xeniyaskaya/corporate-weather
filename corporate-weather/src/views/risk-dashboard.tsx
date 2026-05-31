@@ -826,7 +826,20 @@ function HostedRiskDashboard() {
   // `/try#/...` links on Alpic; embedded Skybridge/ChatGPT mode keeps navigation internal
   // and exposes the matching standalone route through the host's "open in app" affordance.
   useEffect(() => {
-    setOpenInAppUrl(openInAppTarget).catch(() => undefined);
+    if (
+      typeof window === "undefined" ||
+      window.skybridge?.hostType !== "apps-sdk" ||
+      typeof window.openai?.setOpenInAppUrl !== "function"
+    ) {
+      return;
+    }
+
+    try {
+      setOpenInAppUrl(openInAppTarget).catch(() => undefined);
+    } catch {
+      // Some playground/embedded hosts expose the view without the Apps SDK
+      // fullscreen URL API. Ignore that so the dashboard itself still renders.
+    }
   }, [openInAppTarget, setOpenInAppUrl]);
 
   useEffect(() => {
