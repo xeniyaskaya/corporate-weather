@@ -1,7 +1,7 @@
 import { McpServer } from "skybridge/server";
 import { z } from "zod";
 
-import { analyzeCompany } from "./risk-model.js";
+import { analyzeCompany, riskOutputSchema } from "./risk-model.js";
 
 const server = new McpServer(
   {
@@ -18,6 +18,7 @@ const server = new McpServer(
     inputSchema: {
       companyName: z.string().min(1).describe("Company name to analyze"),
     },
+    outputSchema: riskOutputSchema,
     annotations: {
       readOnlyHint: true,
       openWorldHint: false,
@@ -44,6 +45,7 @@ const server = new McpServer(
     const structuredContent = await analyzeCompany(companyName.trim());
 
     return {
+      structuredContent,
       _meta: {
         result: structuredContent,
         "openai/assistantInstructions":
@@ -59,6 +61,10 @@ const server = new McpServer(
     description:
       "Open the Corporate Weather start screen so the user can choose a company scan or the DACH Weather Map. Use this when the user wants to start, explore, or open the app without naming a company.",
     inputSchema: {},
+    outputSchema: {
+      screen: z.literal("landing"),
+      message: z.string(),
+    },
     annotations: {
       readOnlyHint: true,
       openWorldHint: false,
@@ -81,13 +87,21 @@ const server = new McpServer(
       "openai/toolInvocation/invoked": "Corporate Weather ready",
     },
   },
-  async () => ({
-    _meta: {
-      "openai/assistantInstructions":
-        "Do not write prose after this tool call. The Corporate Weather widget is the complete response.",
-    },
-    content: [],
-  }),
+  async () => {
+    const structuredContent = {
+      screen: "landing" as const,
+      message: "Corporate Weather start screen ready.",
+    };
+
+    return {
+      structuredContent,
+      _meta: {
+        "openai/assistantInstructions":
+          "Do not write prose after this tool call. The Corporate Weather widget is the complete response.",
+      },
+      content: [],
+    };
+  },
 );
 
 if (process.env.NODE_ENV === "production") {
