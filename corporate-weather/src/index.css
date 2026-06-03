@@ -632,6 +632,12 @@ select {
   padding: 0 13px;
 }
 
+.search-bar .demo-switch input {
+  width: 14px;
+  height: 14px;
+  padding: 0;
+}
+
 .search-bar select {
   padding: 0 10px;
 }
