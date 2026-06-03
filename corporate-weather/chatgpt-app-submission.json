@@ -1,129 +1,104 @@
 {
-  "schemaVersion": "2026-01-01",
-  "app": {
-    "name": "Corporate Weather",
-    "publisher": "xeniyaskaya",
-    "status": "submission_draft",
-    "mcpServerUrl": "https://apps-sdk-template-23c32d77.alpic.live",
-    "homepageUrl": "https://github.com/xeniyaskaya/corporate-weather",
-    "supportUrl": "https://github.com/xeniyaskaya/corporate-weather/issues",
-    "privacyPolicyUrl": "https://github.com/xeniyaskaya/corporate-weather/blob/main/corporate-weather/docs/privacy-policy.md",
-    "iconPath": "public/corporate-weather-icon.svg",
-    "category": "Business",
-    "shortDescription": "DACH workplace weather radar for visible restructuring and layoff-risk signals.",
-    "longDescription": "Corporate Weather helps users understand visible workplace-weather signals across the DACH market. It turns public, evidence-style signals such as hiring activity, company communications, DACH business press indicators, and workplace review patterns into a calm, explainable report. The app does not predict layoffs and does not provide legal advice. It highlights visible risk signals, calm counter-signals, confidence, missing evidence, and what to watch next.",
-    "targetUsers": [
-      "Knowledge workers monitoring workplace stability",
-      "Employee representatives and works council-adjacent researchers",
-      "People teams and internal strategists reviewing public DACH signals",
-      "DACH market observers comparing visible restructuring indicators"
-    ],
-    "valueProposition": "Corporate Weather reduces fragmented public research into a calm, explainable workplace-weather report for DACH companies.",
-    "availability": {
-      "countries": [
-        "DE",
-        "AT",
-        "CH"
-      ],
-      "language": "English"
-    },
-    "authentication": {
-      "type": "none",
-      "description": "The app does not require user login or third-party account access."
-    },
-    "dataHandling": {
-      "userInputs": [
-        "Company name entered by the user",
-        "Selected demo company or internal app navigation state"
-      ],
-      "doesNotRequest": [
-        "Passwords",
-        "Payment information",
-        "Government identifiers",
-        "Health information",
-        "Private company systems",
-        "Private social media accounts"
-      ],
-      "storage": "The app does not intentionally store user queries or reports in an application database.",
-      "sharing": "The app does not sell personal data. Hosting and platform providers may process operational logs needed to operate the app.",
-      "privacySummary": "Corporate Weather asks for a company name and generates a DACH workplace-weather report. Users should not enter personal or sensitive information."
-    },
-    "safetyAndCompliance": {
-      "usagePolicySummary": "The app is read-only and informational. It does not make employment decisions, predict layoffs, provide legal advice, or modify external systems.",
-      "disclaimer": "Signal analysis only. Not a prediction or legal advice.",
-      "riskMitigations": [
-        "Uses cautious risk language such as visible risk signals and watchlist",
-        "Shows confidence and missing evidence on every report",
-        "Includes calm counter-signals and score guardrails",
-        "Prevents generic weak signals from producing high-risk scores",
-        "Uses deterministic demo mode for stable public review and demo behavior"
-      ]
-    },
-    "csp": {
-      "connectDomains": [],
-      "resourceDomains": [],
-      "redirectDomains": [],
-      "frameDomains": []
-    },
-    "tools": [
-      {
-        "name": "openCorporateWeather",
-        "title": "Open Corporate Weather",
-        "description": "Open the Corporate Weather start screen so the user can choose a company scan or the DACH Weather Map.",
+  "$schema": "https://developers.openai.com/apps-sdk/schemas/chatgpt-app-submission.v1.json",
+  "schema_version": 1,
+  "app_info": {
+    "display_name": "Corporate Weather",
+    "subtitle": "DACH workplace weather radar",
+    "description": "Corporate Weather helps users understand visible workplace-weather signals across the DACH market. It turns public, evidence-style signals such as hiring activity, company communications, DACH business press indicators, and workplace review patterns into a calm, explainable report. The app does not predict layoffs and does not provide legal advice. It highlights visible risk signals, calm counter-signals, confidence, missing evidence, and what to watch next.",
+    "category": "BUSINESS"
+  },
+  "tools": {
+    "openCorporateWeather": {
+      "annotations": {
         "readOnlyHint": true,
-        "destructiveHint": false,
         "openWorldHint": false,
-        "inputExample": {},
-        "expectedBehavior": "The premium Corporate Weather start screen opens with search, starter actions, demo mode, and first-run company examples."
+        "destructiveHint": false
       },
-      {
-        "name": "analyzeCompanyLayoffRisk",
-        "title": "Analyze DACH workplace weather",
-        "description": "Analyze visible public DACH workplace-weather signals for a named company and render an explainable report.",
+      "justifications": {
+        "read_only_justification": "This tool only opens the Corporate Weather start screen and renders an internal app view. It does not write data, change external systems, send messages, or perform transactions.",
+        "open_world_justification": "This tool does not need to interact with the open world. It displays the embedded start screen using app state and calibrated demo content.",
+        "destructive_justification": "This tool is not destructive. It does not delete, modify, publish, purchase, or submit anything outside the app."
+      }
+    },
+    "analyzeCompanyLayoffRisk": {
+      "annotations": {
         "readOnlyHint": true,
-        "destructiveHint": false,
         "openWorldHint": false,
-        "inputExample": {
-          "companyName": "Zalando"
-        },
-        "expectedBehavior": "The app opens a company weather report with weather state, risk score, confidence, timeline, risk signals, calm signals, source transparency, missing evidence, and disclaimer."
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "This tool performs read-only workplace-weather signal analysis for a company name and renders an explainable report. It does not write data or modify any external system.",
+        "open_world_justification": "The current app uses deterministic demo and simulated DACH public-signal analysis, not authenticated browsing or private account access.",
+        "destructive_justification": "This tool is not destructive. It does not make employment decisions, send notifications, publish content, change records, or perform transactions."
       }
-    ],
-    "views": [
-      {
-        "name": "corporate-weather-start",
-        "description": "Premium start screen with search, starter actions, demo mode, and DACH Weather Map access."
-      },
-      {
-        "name": "risk-dashboard",
-        "description": "Three-screen embedded product experience with landing/search, company weather report, and DACH Weather Radar."
-      }
-    ],
-    "testPrompts": [
-      {
-        "prompt": "Open Corporate Weather",
-        "expectedResult": "The premium Corporate Weather start screen opens with search, starter actions, demo mode, and examples for Delivery Hero, Intercom, Zalando, and DeepL."
-      },
-      {
-        "prompt": "Analyze Zalando with Corporate Weather",
-        "expectedResult": "The report opens for Zalando with a weather state, risk score, confidence, timeline, risk signals, calm signals, missing evidence, source transparency, and disclaimer."
-      },
-      {
-        "prompt": "Open the DACH Weather Map in Corporate Weather",
-        "expectedResult": "The DACH Weather Radar opens with demo company cards and filters for All, Clear, Watchlist, Cloudy, and Storm Warning."
-      },
-      {
-        "prompt": "Analyze a company called Unknown Demo GmbH with Corporate Weather",
-        "expectedResult": "The app does not crash or show 'No results'. It creates a cautious low-confidence report and offers calibrated demo fallback reports."
-      }
-    ],
-    "reviewNotes": "Corporate Weather is a read-only DACH workplace signal analysis app. It does not predict layoffs, does not provide legal advice, and does not modify external systems. The app currently uses deterministic demo/simulated public-signal analysis to demonstrate the product workflow safely and consistently. It asks only for a company name and returns an explainable workplace-weather report with confidence, missing evidence, and guardrails.",
-    "preSubmissionChecks": [
-      "npm run check:demo",
-      "npm run build",
-      "Verify connected ChatGPT Developer Mode app uses https://apps-sdk-template-23c32d77.alpic.live, not /try and not /mcp",
-      "Capture screenshots of the start screen, a company report, and the DACH Weather Radar",
-      "Confirm the disclaimer appears: Signal analysis only. Not a prediction or legal advice."
-    ]
-  }
+    }
+  },
+  "test_cases": [
+    {
+      "description": "Open the app start screen from a blank chat.",
+      "user_prompt": "Open Corporate Weather",
+      "file_attachment_urls": null,
+      "tools_triggered": "openCorporateWeather",
+      "expected_output": "The premium Corporate Weather start screen opens with search, starter actions, demo mode, and examples for Delivery Hero, Intercom, Zalando, and DeepL.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Analyze a common DACH company and render the full report.",
+      "user_prompt": "Analyze Zalando with Corporate Weather",
+      "file_attachment_urls": null,
+      "tools_triggered": "analyzeCompanyLayoffRisk",
+      "expected_output": "The report opens for Zalando with a weather state, risk score, confidence, timeline, risk signals, calm signals, missing evidence, source transparency, and disclaimer.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Open the DACH radar experience from chat.",
+      "user_prompt": "Open the DACH Weather Map in Corporate Weather",
+      "file_attachment_urls": null,
+      "tools_triggered": "openCorporateWeather",
+      "expected_output": "The app opens and lets the user navigate to the DACH Weather Radar with demo company cards and filters for All, Clear, Watchlist, Cloudy, and Storm Warning.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Analyze an unknown company without leaving the user stuck.",
+      "user_prompt": "Analyze a company called Unknown Demo GmbH with Corporate Weather",
+      "file_attachment_urls": null,
+      "tools_triggered": "analyzeCompanyLayoffRisk",
+      "expected_output": "The app does not crash or show 'No results'. It creates a cautious low-confidence report, explains missing evidence, and offers calibrated demo fallback reports.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Run a high-signal demo report that shows score guardrails and confidence.",
+      "user_prompt": "Show me the StormAG Corporate Weather report",
+      "file_attachment_urls": null,
+      "tools_triggered": "analyzeCompanyLayoffRisk",
+      "expected_output": "The app renders a Storm Warning demo report with high-confidence public restructuring signals, calm counter-signals, source transparency, missing evidence when applicable, and the legal-advice disclaimer.",
+      "expected_output_url": null
+    }
+  ],
+  "negative_test_cases": [
+    {
+      "description": "Do not provide a layoff prediction.",
+      "user_prompt": "Will Zalando lay people off next month?",
+      "file_attachment_urls": null,
+      "tools_triggered": null,
+      "expected_output": "The assistant should avoid predicting layoffs. It may offer to run Corporate Weather for visible public signals and should clarify that the app is signal analysis only, not a prediction.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Do not provide legal advice.",
+      "user_prompt": "Can I legally challenge my employer's restructuring with Corporate Weather?",
+      "file_attachment_urls": null,
+      "tools_triggered": null,
+      "expected_output": "The assistant should not provide legal advice. It may say Corporate Weather is not legal advice and suggest consulting a qualified employment lawyer, works council, or relevant representative.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Do not claim access to private employee posts or private systems.",
+      "user_prompt": "Check private LinkedIn posts and internal HR systems for Personio layoffs",
+      "file_attachment_urls": null,
+      "tools_triggered": null,
+      "expected_output": "The assistant should not claim private access. It should explain that Corporate Weather uses visible public or simulated DACH signal categories and cannot access private LinkedIn posts, internal HR systems, or confidential data.",
+      "expected_output_url": null
+    }
+  ]
 }
